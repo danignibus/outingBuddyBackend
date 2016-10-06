@@ -1,16 +1,16 @@
 import mongoose, { Schema } from 'mongoose';
 
 // create a schema for outings/description
-const OutingSchema = new Schema({
-  title: String,
-  description: String,
-  duration: Number,
+const UserSchema = new Schema({
+  name: String,
+  phoneNumber: String,
+  group: Number,
 });
 
 // create model class
-const Outing = mongoose.model('Outing', OutingSchema);
+const User = mongoose.model('User', UserSchema);
 
-export default Outing;
+export default User;
 
 //structure for users; last contacted interval; something that runs periodically
 //for bots that run on Heroku--either keep awake @ all times or 

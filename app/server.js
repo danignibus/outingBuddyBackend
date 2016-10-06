@@ -14,6 +14,7 @@ const controller = TwilioSMSBot({
   twilio_number: '+14082146413'
 })
 
+var Users = require('./controllers/user_controller')
 var Outings = require('./controllers/outing_controller')
 
 let bot = controller.spawn({})
@@ -23,7 +24,6 @@ controller.setupWebserver(process.env.PORT ||  3001, function (err, webserver) {
     console.log('TwilioSMSBot is online!')
   })
 })
-
  
 controller.hears(['I want an outing!'], 'message_received', (bot, message) => {
   bot.startConversation(message, (err, convo) => {
@@ -40,9 +40,25 @@ controller.hears(['I want an outing!'], 'message_received', (bot, message) => {
   })
 })
 
+controller.hears(['Journal'], 'message_received', (bot, message) => {
+  bot.startConversation(message, (err, convo) => {
+    convo.ask('Type in your journal entry! ', (res, convo) => {
+      convo.say('Thanks! Feel free to journal any time you do something exciting!')
+      convo.next()
+    })
+  })
+})
+
 
 controller.hears(['COMMANDS'], 'message_received', (bot, message) => {
   bot.startConversation(message, (err, convo) => {
+    //get user type
+
+    //if user type == JOURNAL
+
+    //get recording
+
+    //else if user type == OUTINGS
     convo.say('Type "I want an outing!" to generate an outing for a specified time increment')
   })
 })
