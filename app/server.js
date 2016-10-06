@@ -42,6 +42,8 @@ controller.hears(['I want an outing!'], 'message_received', (bot, message) => {
 })
 
 controller.hears(['Journal'], 'message_received', (bot, message) => {
+  console.log('da message: ' + message)
+  console.log('da bot' + bot)
   bot.startConversation(message, (err, convo) => {
     convo.ask('Type in your journal entry! ', (res, convo) => {
       convo.say('Thanks! Feel free to journal any time you do something exciting!')
