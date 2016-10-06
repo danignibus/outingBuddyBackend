@@ -1,7 +1,6 @@
 
 import mongoose from 'mongoose';
 
-
 // DB Setup
 const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost/outingsbot';
 mongoose.connect(mongoURI);
@@ -15,7 +14,6 @@ const controller = TwilioSMSBot({
   twilio_number: '+14082146413'
 })
 
-var Outing = require('./models/outing_model')
 var Outings = require('./controllers/outing_controller')
 
 let bot = controller.spawn({})
@@ -24,15 +22,19 @@ controller.setupWebserver(process.env.PORT ||  3001, function (err, webserver) {
   controller.createWebhookEndpoints(controller.webserver, bot, function () {
     console.log('TwilioSMSBot is online!')
   })
-  Outings.createOuting();
 })
 
  
 controller.hears(['I want an outing!'], 'message_received', (bot, message) => {
   bot.startConversation(message, (err, convo) => {
-    convo.say('Woo hoo!')
-    convo.ask('How many hours? (1 hour increments only. Ex: 2, 3, 4)', (res, convo) => {
+    convo.ask('Woo hoo! How many hours? (1 hour increments only. Ex: 2, 3, 4)', (res, convo) => {
       convo.say(`Okay, finding you an outing for ${res.text} hours!`)
+      var duration = res.text
+      console.log(duration)
+      Outings.getRandomOuting((err, item) => {
+        convo.say(`Outing name: ${item.title}`)
+        convo.say(`Outing description: ${item.description}`)
+      })
       convo.next()
     })
   })

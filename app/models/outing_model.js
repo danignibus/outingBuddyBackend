@@ -6,6 +6,8 @@ const OutingSchema = new Schema({
   description: String,
 });
 
+OutingSchema.plugin(random, { path: 'r' }); 
+
 // create model class
 const Outing = mongoose.model('Outing', OutingSchema);
 
