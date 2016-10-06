@@ -31,10 +31,11 @@ controller.hears(['I want an outing!'], 'message_received', (bot, message) => {
       convo.say(`Okay, finding you an outing for ${res.text} hours!`)
       var duration = res.text
       console.log(duration)
-      Outings.getRandomOuting((err, item) => {
-        convo.say(`Outing name: ${item.title}`)
-        convo.say(`Outing description: ${item.description}`)
-      })
+      // Outings.getRandomOuting((err, item) => {
+      //   convo.say(`Outing name: ${item.title}`)
+      //   convo.say(`Outing description: ${item.description}`)
+      // })
+      convo.say('No outing for you!! Muahahahaha')
       convo.next()
     })
   })
