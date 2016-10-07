@@ -35,10 +35,7 @@ controller.setupWebserver(process.env.PORT ||  3001, function (err, webserver) {
  
 controller.hears(['I want an outing!'], 'message_received', (bot, message) => {
   bot.startConversation(message, (err, convo) => {
-    convo.ask('Woo hoo! How many hours? (1 hour increments only. Ex: 2, 3, 4)', (res, convo) => {
-      convo.say(`Okay, finding you an outing for ${res.text} hours!`)
-      var duration = res.text
-      console.log(duration)
+    convo.ask('Woo hoo! Finding you one now.', (res, convo) => {
       Outings.getRandomOuting((err, outing) => {
         convo.say(`Outing name: ${outing.title}`)
         convo.say(`Outing description: ${outing.description}`)
@@ -47,6 +44,21 @@ controller.hears(['I want an outing!'], 'message_received', (bot, message) => {
     })
   })
 })
+
+// controller.hears(['I want an outing!'], 'message_received', (bot, message) => {
+//   bot.startConversation(message, (err, convo) => {
+//     convo.ask('Woo hoo! How many hours? (1 hour increments only. Ex: 2, 3, 4)', (res, convo) => {
+//       convo.say(`Okay, finding you an outing for ${res.text} hours!`)
+//       var duration = res.text
+//       console.log(duration)
+//       Outings.getRandomOuting((err, outing) => {
+//         convo.say(`Outing name: ${outing.title}`)
+//         convo.say(`Outing description: ${outing.description}`)
+//       })
+//       convo.next()
+//     })
+//   })
+// })
 
 controller.hears(['Journal'], 'message_received', (bot, message) => {
   console.log('da message user: ' + message.user)
