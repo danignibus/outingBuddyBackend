@@ -1,5 +1,7 @@
 
 import mongoose from 'mongoose';
+const util = require('util')
+var http = require("http");
 
 // DB Setup
 const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost/outingsbot';
@@ -13,6 +15,12 @@ const controller = TwilioSMSBot({
   auth_token: 'c15e339ffe42774e2257fa9b4f5b3924',
   twilio_number: '+14082146413'
 })
+
+//ping Heroku every 5 minutes
+setInterval(function() {
+    http.get("http://obscure-mesa-42867.herokuapp.com/");
+    console.log('pinged!');
+}, 300000);
 
 var Users = require('./controllers/user_controller')
 var Outings = require('./controllers/outing_controller')
@@ -31,19 +39,17 @@ controller.hears(['I want an outing!'], 'message_received', (bot, message) => {
       convo.say(`Okay, finding you an outing for ${res.text} hours!`)
       var duration = res.text
       console.log(duration)
-      Outings.getRandomOuting((err, item) => {
-        convo.say(`Outing name: ${item.title}`)
-        convo.say(`Outing description: ${item.description}`)
+      Outings.getRandomOuting((err, outing) => {
+        convo.say(`Outing name: ${outing.title}`)
+        convo.say(`Outing description: ${outing.description}`)
       })
-     // convo.say('No outing for you!! Muahahahaha')
       convo.next()
     })
   })
 })
 
 controller.hears(['Journal'], 'message_received', (bot, message) => {
-  console.log('da message: ' + message)
-  console.log('da bot' + bot)
+  console.log('da message user: ' + message.user)
   bot.startConversation(message, (err, convo) => {
     convo.ask('Type in your journal entry! ', (res, convo) => {
       convo.say('Thanks! Feel free to journal any time you do something exciting!')
@@ -55,14 +61,16 @@ controller.hears(['Journal'], 'message_received', (bot, message) => {
 
 controller.hears(['COMMANDS'], 'message_received', (bot, message) => {
   bot.startConversation(message, (err, convo) => {
-    //get user type
-
-    //if user type == JOURNAL
-
-    //get recording
-
-    //else if user type == OUTINGS
-    convo.say('Type "I want an outing!" to generate an outing for a specified time increment')
+    var phoneNumber = message.user
+    var user = Users.getUser((err, user, phoneNumber) => {
+        if (user.group == 1) {
+            convo.say('Type "I want an outing!" to generate an outing for a specified time increment. \
+                Type "Journal" to record a memorable activity you\'ve participated in!')
+        }
+        else {
+            convo.say('Type "Journal" to record a memorable activity you\'ve participated in!')
+        }
+    }, phoneNumber)
   })
 })
 
