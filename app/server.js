@@ -31,7 +31,28 @@ controller.setupWebserver(process.env.PORT ||  3001, function (err, webserver) {
   controller.createWebhookEndpoints(controller.webserver, bot, function () {
     console.log('TwilioSMSBot is online!')
   })
+  // var message = { text: 'I want an outing!',
+  //     from: '+14082146413',
+  //     to: '+14086076374',
+  //     user: '+14086076374',
+  //     channel: '+14086076374'
+  //   }
+  //   bot.startConversation(message, (err, convo) => {
+  //       convo.say('hello!')
+  //   })
 })
+
+setInterval(function() {
+    var message = {
+        from: '+14082146413',
+        to: '+14086076374',
+        user: '+14086076374',
+        channel: '+14086076374'
+    }
+    bot.startConversation(message, (err, convo) => {
+        convo.say('hello! it\'s been an hour :)')
+    })
+}, 3600000);
  
 controller.hears(['I want an outing!'], 'message_received', (bot, message) => {
   bot.startConversation(message, (err, convo) => {
@@ -44,6 +65,8 @@ controller.hears(['I want an outing!'], 'message_received', (bot, message) => {
     })
   })
 })
+
+
 
 // controller.hears(['I want an outing!'], 'message_received', (bot, message) => {
 //   bot.startConversation(message, (err, convo) => {
