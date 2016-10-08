@@ -31,29 +31,31 @@ controller.setupWebserver(process.env.PORT ||  3001, function (err, webserver) {
   controller.createWebhookEndpoints(controller.webserver, bot, function () {
     console.log('TwilioSMSBot is online!')
   })
-  // var message = { text: 'I want an outing!',
-  //     from: '+14082146413',
-  //     to: '+14086076374',
-  //     user: '+14086076374',
-  //     channel: '+14086076374'
-  //   }
-  //   bot.startConversation(message, (err, convo) => {
-  //       convo.say('hello!')
-  //   })
 })
 
 setInterval(function() {
-    var message = {
-        from: '+14082146413',
-        to: '+14086076374',
-        user: '+14086076374',
-        channel: '+14086076374'
-    }
-    bot.startConversation(message, (err, convo) => {
-        convo.say('hello! it\'s been an hour :)')
+    Users.getJournalUsers((err, users) => {
+        for (var i = 0; i < users.length; i++) {
+            var phoneNumber = users[i].phoneNumber
+            console.log(phoneNumber)
+            var message = {
+                from: '+14082146413',
+                to: phoneNumber,
+                user: phoneNumber,
+                channel: phoneNumber
+            }
+            bot.startConversation(message, (err, convo) => {
+                convo.ask('Send us a short description of something memorable you did in the past two days!', (res, convo) => {
+                    console.log('heres what they did' + res.text)
+                    convo.say('Awesome! Thanks.')
+                    convo.next()
+                })
+            })
+        }
     })
-}, 3600000);
+}, 7200000);
  
+
 controller.hears(['I want an outing!'], 'message_received', (bot, message) => {
   bot.startConversation(message, (err, convo) => {
     convo.ask('Woo hoo! Finding you one now.', (res, convo) => {

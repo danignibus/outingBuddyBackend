@@ -12,12 +12,12 @@ export const getUser = (callback, phoneNumber) => {
 	User.findOne({ 'phoneNumber': phoneNumber }).exec(callback);
 }
 
+// export const getJournalUsers = (callback) => {
+// 	// var users = User.find({ 'group' : '2'});
+// 	// console.log(users);
+// 	User.find({ 'group': '2'}).exec(callback);
+// }
 
-// export const getRandomOuting = (callback) => {
-// 	Outing
-// 		.count()
-// 		.exec((err, count) => {
-// 			let skip = Math.floor(Math.random() * count);
-// 			Outing.findOne().skip(skip).exec(callback);
-// 		});
-// 	}
+export const getJournalUsers = (callback) => {
+	User.find({'group': '2'}).exec(callback);
+}

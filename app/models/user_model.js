@@ -4,7 +4,8 @@ import mongoose, { Schema } from 'mongoose';
 const UserSchema = new Schema({
   name: String,
   phoneNumber: String,
-  group: Number,
+  group: String,
+  journals: [],
 });
 
 // create model class
