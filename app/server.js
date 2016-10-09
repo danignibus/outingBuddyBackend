@@ -53,7 +53,7 @@ setInterval(function() {
             })
         }
     })
-}, 2000);
+}, 7200000);
  
 
 controller.hears(['I want an outing!'], 'message_received', (bot, message) => {
