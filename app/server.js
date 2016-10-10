@@ -33,6 +33,29 @@ controller.setupWebserver(process.env.PORT ||  3001, function (err, webserver) {
   })
 })
 
+// setInterval(function() {
+//     Users.getUsers((err, users) => {
+//         for (var i = 0; i < users.length; i++) {
+//             var phoneNumber = users[i].phoneNumber
+//             console.log(phoneNumber)
+//             var message = {
+//                 from: '+14082146413',
+//                 to: phoneNumber,
+//                 user: phoneNumber,
+//                 channel: phoneNumber
+//             }
+//             bot.startConversation(message, (err, convo) => {
+//                 convo.ask('Send us a short description of something memorable you did in the past two days!', (res, convo) => {
+//                     Users.saveJournalEntry(message.user, res.text)
+//                     convo.say('Awesome! Thanks.')
+//                     convo.next()
+//                 })
+//             })
+//         }
+//     })
+// }, 7200000);
+
+
 setInterval(function() {
     Users.getUsers((err, users) => {
         for (var i = 0; i < users.length; i++) {
@@ -45,11 +68,7 @@ setInterval(function() {
                 channel: phoneNumber
             }
             bot.startConversation(message, (err, convo) => {
-                convo.ask('Send us a short description of something memorable you did in the past two days!', (res, convo) => {
-                    Users.saveJournalEntry(message.user, res.text)
-                    convo.say('Awesome! Thanks.')
-                    convo.next()
-                })
+                convo.say('Please text in "Journal" to initiate recording a memorable experience from the past two days')
             })
         }
     })
@@ -87,7 +106,7 @@ controller.hears(['Journal'], 'message_received', (bot, message) => {
   bot.startConversation(message, (err, convo) => {
     convo.ask('Type in your journal entry! ', (res, convo) => {
         Users.saveJournalEntry(message.user, res.text)
-        convo.say('Thanks! Feel free to journal any time you do something exciting!')
+        convo.say('Thanks! Your entry was recorded.')
         convo.next()
     })
   })
