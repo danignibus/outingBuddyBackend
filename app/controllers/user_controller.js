@@ -23,6 +23,10 @@ export const getJournalUsers = (callback) => {
 	User.find({'group': '2'}).exec(callback);
 }
 
+export const getUsers = (callback) => {
+	User.find().exec(callback);
+}
+
 export const saveJournalEntry = (phoneNumber, journal) => {
 	//get user with that phone number, push journal onto journals array
 	User.findOneAndUpdate(
