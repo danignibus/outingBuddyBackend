@@ -19,7 +19,6 @@ export const getOutings = (req, res) => {
 };
 
 export const getRandomOuting = (callback) => {
-	console.log('got to getRandomOuting');
 	Outing
 		.count()
 		.exec((err, count) => {

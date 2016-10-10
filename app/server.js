@@ -34,7 +34,7 @@ controller.setupWebserver(process.env.PORT ||  3001, function (err, webserver) {
 })
 
 setInterval(function() {
-    Users.getJournalUsers((err, users) => {
+    Users.getUsers((err, users) => {
         for (var i = 0; i < users.length; i++) {
             var phoneNumber = users[i].phoneNumber
             console.log(phoneNumber)
@@ -53,14 +53,12 @@ setInterval(function() {
             })
         }
     })
-}, 7200000);
+}, 2000);
  
 controller.hears(['I want an outing!'], 'message_received', (bot, message) => {
     bot.startConversation(message, (err, convo) => {
         convo.say('Woo hoo! Finding you one now.')
         Outings.getRandomOuting((err, outing) => {
-            console.log('got outing')
-            console.log(outing.title)
             convo.say(`Outing name: ${outing.title}`)
             convo.say(`Outing description: ${outing.description}`)
           })
@@ -105,7 +103,7 @@ controller.hears(['COMMANDS'], 'message_received', (bot, message) => {
                 Type "Journal" to record a memorable activity you\'ve participated in!')
         }
         else {
-            convo.say('Type "Journal" to record a memorable activity you\'ve participated in!')
+            convo.say('We\'ll be prompting you for a journal entry soon. Stay tuned!')
         }
     }, phoneNumber)
   })
