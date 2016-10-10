@@ -55,17 +55,16 @@ setInterval(function() {
     })
 }, 7200000);
  
-
 controller.hears(['I want an outing!'], 'message_received', (bot, message) => {
-  bot.startConversation(message, (err, convo) => {
-    convo.ask('Woo hoo! Finding you one now.', (res, convo) => {
-      Outings.getRandomOuting((err, outing) => {
-        convo.say(`Outing name: ${outing.title}`)
-        convo.say(`Outing description: ${outing.description}`)
+    bot.startConversation(message, (err, convo) => {
+        convo.say('Woo hoo! Finding you one now.')
+        Outings.getRandomOuting((err, outing) => {
+            console.log('got outing')
+            console.log(outing.title)
+            convo.say(`Outing name: ${outing.title}`)
+            convo.say(`Outing description: ${outing.description}`)
+          })
       })
-      convo.next()
-    })
-  })
 })
 
 
@@ -89,8 +88,9 @@ controller.hears(['Journal'], 'message_received', (bot, message) => {
   console.log('da message user: ' + message.user)
   bot.startConversation(message, (err, convo) => {
     convo.ask('Type in your journal entry! ', (res, convo) => {
-      convo.say('Thanks! Feel free to journal any time you do something exciting!')
-      convo.next()
+        Users.saveJournalEntry(message.user, res.text)
+        convo.say('Thanks! Feel free to journal any time you do something exciting!')
+        convo.next()
     })
   })
 })
