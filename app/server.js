@@ -46,7 +46,7 @@ setInterval(function() {
             }
             bot.startConversation(message, (err, convo) => {
                 convo.ask('Send us a short description of something memorable you did in the past two days!', (res, convo) => {
-                    console.log('heres what they did' + res.text)
+                    Users.saveJournalEntry(message.user, res.text)
                     convo.say('Awesome! Thanks.')
                     convo.next()
                 })
