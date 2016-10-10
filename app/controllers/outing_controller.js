@@ -19,10 +19,11 @@ export const getOutings = (req, res) => {
 };
 
 export const getRandomOuting = (callback) => {
+	console.log('got to getRandomOuting');
 	Outing
 		.count()
 		.exec((err, count) => {
 			let skip = Math.floor(Math.random() * count);
 			Outing.findOne().skip(skip).exec(callback);
 		});
-	}
+}
