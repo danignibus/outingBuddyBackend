@@ -10,6 +10,7 @@ mongoose.connect(mongoURI);
 mongoose.Promise = global.Promise;
 
 const app = express();
+const server = http.createServer(app);
 const TwilioSMSBot = require('botkit-sms')
 const controller = TwilioSMSBot({
   account_sid: 'AC92e5ed98b84911ee8d571b78b5650c38',
@@ -25,17 +26,14 @@ setInterval(function() {
 
 //ping Heroku every 5 minutes
 setInterval(function() {
-    http.get("http://obscure-mesa-42867.herokuapp.com/");
-    console.log('pinged2!');
+    http.get("http://obscure-mesa-42867.herokuapp.com/remind");
+    console.log('pinged!');
 }, 1000);
 
 var Users = require('./controllers/user_controller')
 var Outings = require('./controllers/outing_controller')
 
 let bot = controller.spawn({})
-
-const port = process.env.PORT || 9090;
-app.listen(port);
 
 app.get('/remind', (req, res) => {
     //get all users
@@ -47,34 +45,11 @@ app.get('/remind', (req, res) => {
 });
 
 
-//controller.setupWebserver(process.env.PORT ||  3001, function (err, webserver) {
-controller.createWebhookEndpoints(app, bot, function () {
+// controller.setupWebserver(process.env.PORT ||  3001, function (err, webserver) {
+controller.createWebhookEndpoints(server, bot, function () {
     console.log('TwilioSMSBot is online!')
 })
-//})
-
-// setInterval(function() {
-//     Users.getUsers((err, users) => {
-//         for (var i = 0; i < users.length; i++) {
-//             var phoneNumber = users[i].phoneNumber
-//             console.log(phoneNumber)
-//             var message = {
-//                 from: '+14082146413',
-//                 to: phoneNumber,
-//                 user: phoneNumber,
-//                 channel: phoneNumber
-//             }
-//             bot.startConversation(message, (err, convo) => {
-//                 convo.ask('Send us a short description of something memorable you did in the past two days!', (res, convo) => {
-//                     Users.saveJournalEntry(message.user, res.text)
-//                     convo.say('Awesome! Thanks.')
-//                     convo.next()
-//                 })
-//             })
-//         }
-//     })
-// }, 7200000);
-
+// })
 
 setInterval(function() {
     Users.getUsers((err, users) => {
@@ -86,6 +61,29 @@ setInterval(function() {
                 to: '+14086076374',
                 user: '+14086076374',
                 channel: '+14086076374'
+            }
+            bot.startConversation(message, (err, convo) => {
+                convo.ask('Send us a short description of something memorable you did in the past two days!', (res, convo) => {
+                    Users.saveJournalEntry(message.user, res.text)
+                    convo.say('Awesome! Thanks.')
+                    convo.next()
+                })
+            })
+        }
+    })
+}, 4000);
+
+
+setInterval(function() {
+    Users.getUsers((err, users) => {
+        for (var i = 0; i < users.length; i++) {
+            var phoneNumber = users[i].phoneNumber
+            console.log(phoneNumber)
+            var message = {
+                from: '+14082146413',
+                to: '14086076374',
+                user: '14086076374',
+                channel: '14086076374'
             }
             bot.startConversation(message, (err, convo) => {
                 convo.say('Please text in "Journal" to initiate recording a memorable experience from the past two days')
@@ -156,3 +154,6 @@ controller.hears(['COMMANDS'], 'message_received', (bot, message) => {
 controller.hears('.*', 'message_received', (bot, message) => {
   bot.reply(message, 'Huh? Type "COMMANDS" for available commands.')
 })
+
+const port = process.env.PORT || 9090;
+server.listen(port);
