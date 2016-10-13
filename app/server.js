@@ -83,16 +83,16 @@ setInterval(function() {
             console.log(phoneNumber)
             var message = {
                 from: '+14082146413',
-                to: phoneNumber,
-                user: phoneNumber,
-                channel: phoneNumber
+                to: '+14086076374',
+                user: '+14086076374',
+                channel: '+14086076374'
             }
             bot.startConversation(message, (err, convo) => {
                 convo.say('Please text in "Journal" to initiate recording a memorable experience from the past two days')
             })
         }
     })
-}, 7200000);
+}, 2000);
  
 controller.hears(['I want an outing!'], 'message_received', (bot, message) => {
     bot.startConversation(message, (err, convo) => {
