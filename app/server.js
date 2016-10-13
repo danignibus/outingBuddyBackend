@@ -1,4 +1,4 @@
-
+import express from 'express';
 import mongoose from 'mongoose';
 const util = require('util')
 var http = require("http");
@@ -9,6 +9,7 @@ mongoose.connect(mongoURI);
 // set mongoose promises to es6 default
 mongoose.Promise = global.Promise;
 
+const app = express();
 const TwilioSMSBot = require('botkit-sms')
 const controller = TwilioSMSBot({
   account_sid: 'AC92e5ed98b84911ee8d571b78b5650c38',
@@ -22,16 +23,35 @@ setInterval(function() {
     console.log('pinged!');
 }, 300000);
 
+//ping Heroku every 5 minutes
+setInterval(function() {
+    http.get("http://obscure-mesa-42867.herokuapp.com/");
+    console.log('pinged2!');
+}, 1000);
+
 var Users = require('./controllers/user_controller')
 var Outings = require('./controllers/outing_controller')
 
 let bot = controller.spawn({})
 
-controller.setupWebserver(process.env.PORT ||  3001, function (err, webserver) {
-  controller.createWebhookEndpoints(controller.webserver, bot, function () {
+const port = process.env.PORT || 9090;
+app.listen(port);
+
+app.get('/remind', (req, res) => {
+    //get all users
+    console.log('hello!');
+    //for each user, if their last prompted has been more than 2 minutes, send a reminder
+
+
+    res.send('Reminder page');
+});
+
+
+//controller.setupWebserver(process.env.PORT ||  3001, function (err, webserver) {
+controller.createWebhookEndpoints(app, bot, function () {
     console.log('TwilioSMSBot is online!')
-  })
 })
+//})
 
 // setInterval(function() {
 //     Users.getUsers((err, users) => {
@@ -80,8 +100,13 @@ controller.hears(['I want an outing!'], 'message_received', (bot, message) => {
         Outings.getRandomOuting((err, outing) => {
             convo.say(`Outing name: ${outing.title}`)
             convo.say(`Outing description: ${outing.description}`)
-          })
-      })
+        })
+    })
+    // setTimeout(function() {
+    //     bot.startConversation(message, (err, convo) => {
+    //         convo.say('Please text in "Journal" to record memories from your outing!')
+    //     })
+    // }, 20000)
 })
 
 
@@ -104,7 +129,7 @@ controller.hears(['I want an outing!'], 'message_received', (bot, message) => {
 controller.hears(['Journal'], 'message_received', (bot, message) => {
   console.log('da message user: ' + message.user)
   bot.startConversation(message, (err, convo) => {
-    convo.ask('Type in your journal entry! ', (res, convo) => {
+    convo.ask('Type in your journal entry! Please only send one text.', (res, convo) => {
         Users.saveJournalEntry(message.user, res.text)
         convo.say('Thanks! Your entry was recorded.')
         convo.next()

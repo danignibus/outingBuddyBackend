@@ -6,6 +6,7 @@ const UserSchema = new Schema({
   phoneNumber: String,
   group: String,
   journals: [],
+  lastTexted: { type: Date, default: Date.now },
 });
 
 // create model class
