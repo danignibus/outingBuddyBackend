@@ -18,18 +18,6 @@ const controller = TwilioSMSBot({
   twilio_number: '+14082146413'
 })
 
-// //ping Heroku every 5 minutes
-// setInterval(function() {
-//     http.get("http://obscure-mesa-42867.herokuapp.com/");
-//     console.log('pinged!');
-// }, 300000);
-
-// //ping Heroku every 5 minutes
-// setInterval(function() {
-//     http.get("http://obscure-mesa-42867.herokuapp.com/remind");
-//     console.log('pinged!');
-// }, 1000);
-
 var Users = require('./controllers/user_controller')
 var Outings = require('./controllers/outing_controller')
 
@@ -59,7 +47,6 @@ controller.setupWebserver(port, function (err, webserver) {
             console.log('Pinged reminder page');
             //for each user, if their last prompted has been more than 2 minutes, send a reminder
         });
-
 
         console.log('TwilioSMSBot is online!')
     })
@@ -95,25 +82,7 @@ controller.hears(['I want an outing!'], 'message_received', (bot, message) => {
             convo.say(`Outing description: ${outing.description}`)
         })
     })
-
 })
-
-
-
-// controller.hears(['I want an outing!'], 'message_received', (bot, message) => {
-//   bot.startConversation(message, (err, convo) => {
-//     convo.ask('Woo hoo! How many hours? (1 hour increments only. Ex: 2, 3, 4)', (res, convo) => {
-//       convo.say(`Okay, finding you an outing for ${res.text} hours!`)
-//       var duration = res.text
-//       console.log(duration)
-//       Outings.getRandomOuting((err, outing) => {
-//         convo.say(`Outing name: ${outing.title}`)
-//         convo.say(`Outing description: ${outing.description}`)
-//       })
-//       convo.next()
-//     })
-//   })
-// })
 
 controller.hears(['Journal'], 'message_received', (bot, message) => {
   console.log('da message user: ' + message.user)
@@ -125,7 +94,6 @@ controller.hears(['Journal'], 'message_received', (bot, message) => {
     })
   })
 })
-
 
 controller.hears(['COMMANDS'], 'message_received', (bot, message) => {
   bot.startConversation(message, (err, convo) => {
