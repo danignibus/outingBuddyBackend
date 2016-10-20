@@ -37,7 +37,7 @@ controller.setupWebserver(port, function (err, webserver) {
             Users.getUsers((err, users) => {
                 for (var i = 0; i < users.length; i++) {
                     var lastPrompted = users[i].lastPrompted
-                    var timeBetweenPrompts = 7200000;
+                    var timeBetweenPrompts = 43200000;
                     var timeElapsed;
                     if (lastPrompted != undefined) {
                         timeElapsed = new Date().getTime() - lastPrompted.getTime();
