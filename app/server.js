@@ -43,9 +43,36 @@ controller.setupWebserver(port, function (err, webserver) {
     controller.createWebhookEndpoints(webserver, bot, function () {
         console.log(webserver);
         webserver.get('/remind', (req, res) => {
-            //get all users
+            //for each user, if their last prompted is undefined or more than 1 hour ago, send a reminder
+            Users.getUsers((err, users) => {
+                for (var i = 0; i < users.length; i++) {
+                    var lastPrompted = users[i].lastPrompted
+                    var timeBetweenPrompts = 12000;
+                    var timeElapsed = new Date().getTime() - lastPrompted.getTime();
+                    if (lastPrompted == undefined || timeElapsed > timeBetweenPrompts) {
+                        console.log(`user name ${users[i].name}`)
+                        console.log(`last prompted ${lastPrompted}`)
+                        Users.updateLastPrompted(users[i].phoneNumber)
+
+                        var phoneNumber = users[i].phoneNumber
+                        console.log(phoneNumber)
+                        var message = {
+                            from: '+14082146413',
+                            to: phoneNumber,
+                            user: phoneNumber,
+                            channel: phoneNumber
+                        }
+                        bot.startConversation(message, (err, convo) => {
+                            if (err) {
+                                console.log(err);
+                            }
+                            convo.say('Please text in "Journal" to initiate recording a memorable experience from the past two days')
+                            convo.next();
+                        })
+                    }
+                }
+            })
             console.log('Pinged reminder page');
-            //for each user, if their last prompted has been more than 2 minutes, send a reminder
         });
 
         console.log('TwilioSMSBot is online!')
@@ -73,7 +100,7 @@ setInterval(function() {
         }
     })
 }, 7200000);
- 
+
 controller.hears(['I want an outing!'], 'message_received', (bot, message) => {
     bot.startConversation(message, (err, convo) => {
         convo.say('Woo hoo! Finding you one now.')

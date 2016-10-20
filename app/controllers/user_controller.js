@@ -23,8 +23,22 @@ export const getJournalUsers = (callback) => {
 	User.find({'group': '2'}).exec(callback);
 }
 
+
 export const getUsers = (callback) => {
 	User.find().exec(callback);
+}
+
+export const updateLastPrompted = (phoneNumber) => {
+	//get user with that phone number, update lastPrompted to current time
+	var now = new Date();
+	User.findOneAndUpdate(
+		{'phoneNumber': phoneNumber},
+		{'lastPrompted': now},
+		function(err, user) {
+			if (err) {
+				console.log('got an error in updateLastPrompted');
+			}
+		});
 }
 
 export const saveJournalEntry = (phoneNumber, journal) => {
@@ -34,7 +48,7 @@ export const saveJournalEntry = (phoneNumber, journal) => {
 		{$push: {'journals': journal}},
 		function(err, user) {
 			if (err) {
-				console.log('got an error in findOneAndUpdate');
+				console.log('got an error in saveJournalEntry');
 			}
 		});
 }
