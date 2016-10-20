@@ -48,7 +48,10 @@ controller.setupWebserver(port, function (err, webserver) {
                 for (var i = 0; i < users.length; i++) {
                     var lastPrompted = users[i].lastPrompted
                     var timeBetweenPrompts = 12000;
-                    var timeElapsed = new Date().getTime() - lastPrompted.getTime();
+                    var timeElapsed;
+                    if (lastPrompted != undefined) {
+                        timeElapsed = new Date().getTime() - lastPrompted.getTime();
+                    }
                     if (lastPrompted == undefined || timeElapsed > timeBetweenPrompts) {
                         console.log(`user name ${users[i].name}`)
                         console.log(`last prompted ${lastPrompted}`)
