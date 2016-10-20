@@ -23,18 +23,8 @@ var Outings = require('./controllers/outing_controller')
 
 let bot = controller.spawn({})
 
-app.get('/remind', (req, res) => {
-    //get all users
-    console.log('hello!');
-    //for each user, if their last prompted has been more than 2 minutes, send a reminder
-
-
-    res.send('Reminder page');
-});
-
 const port = process.env.PORT || 9090;
 // server.listen(port);
-
 
 
 controller.setupWebserver(port, function (err, webserver) {
@@ -76,33 +66,12 @@ controller.setupWebserver(port, function (err, webserver) {
                 }
             })
             console.log('Pinged reminder page');
+            res.send('Reminder page');
         });
 
         console.log('TwilioSMSBot is online!')
     })
 })
-
-setInterval(function() {
-    Users.getUsers((err, users) => {
-        for (var i = 0; i < users.length; i++) {
-            var phoneNumber = users[i].phoneNumber
-            console.log(phoneNumber)
-            var message = {
-                from: '+14082146413',
-                to: '+14086076374',
-                user: '+14086076374',
-                channel: '+14086076374'
-            }
-            bot.startConversation(message, (err, convo) => {
-                if (err) {
-                    console.log(err);
-                }
-                convo.say('Please text in "Journal" to initiate recording a memorable experience from the past two days')
-                convo.next();
-            })
-        }
-    })
-}, 7200000);
 
 controller.hears(['I want an outing!'], 'message_received', (bot, message) => {
     bot.startConversation(message, (err, convo) => {
