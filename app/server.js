@@ -1,3 +1,4 @@
+import apiRouter from './router';
 import express from 'express';
 import mongoose from 'mongoose';
 const util = require('util')
@@ -10,6 +11,7 @@ mongoose.connect(mongoURI);
 mongoose.Promise = global.Promise;
 
 const app = express();
+
 const server = http.createServer(app);
 const TwilioSMSBot = require('botkit-sms')
 const controller = TwilioSMSBot({
@@ -31,7 +33,8 @@ controller.setupWebserver(port, function (err, webserver) {
     // webserver.routes = routes;
 
     controller.createWebhookEndpoints(webserver, bot, function () {
-        console.log(webserver);
+        webserver.use('/api', apiRouter);
+     //   console.log(webserver);
         webserver.get('/remind', (req, res) => {
             //for each user, if their last prompted is undefined or more than 1 hour ago, send a reminder
             Users.getUsers((err, users) => {
@@ -59,7 +62,7 @@ controller.setupWebserver(port, function (err, webserver) {
                             if (err) {
                                 console.log(err);
                             }
-                            convo.say('Please text in "Journal" to initiate recording a memorable experience from the past two days')
+                            convo.say('Please text in "Record" to initiate recording a great experience from the past three days')
                             convo.next();
                         })
                     }
@@ -75,7 +78,7 @@ controller.setupWebserver(port, function (err, webserver) {
 
 controller.hears(['I want an outing!'], 'message_received', (bot, message) => {
     bot.startConversation(message, (err, convo) => {
-        Outings.getRandomOuting((err, outing) => {
+        Outings.getRandomOutingStudy((err, outing) => {
             convo.say(`${outing.description}`)
         })
     })
@@ -84,7 +87,7 @@ controller.hears(['I want an outing!'], 'message_received', (bot, message) => {
 controller.hears(['Journal'], 'message_received', (bot, message) => {
   console.log('da message user: ' + message.user)
   bot.startConversation(message, (err, convo) => {
-    convo.ask('Type in your journal entry! Please only send one text.', (res, convo) => {
+    convo.ask('Type in a short entry about your best experience from the past three days! Please only send one text.', (res, convo) => {
         Users.saveJournalEntry(message.user, res.text)
         convo.say('Thanks! Your entry was recorded.')
         convo.next()
@@ -98,10 +101,10 @@ controller.hears(['COMMANDS'], 'message_received', (bot, message) => {
     var user = Users.getUser((err, user, phoneNumber) => {
         if (user.group == 1) {
             convo.say('Type "I want an outing!" to generate an outing for a specified time increment. \
-                Type "Journal" to record a memorable activity you\'ve participated in!')
+                Type "Record" to record a memorable activity you\'ve participated in recently!')
         }
         else {
-            convo.say('We\'ll be prompting you for a journal entry soon. Stay tuned!')
+            convo.say('We\'ll be prompting you for an entry soon. Stay tuned!')
         }
     }, phoneNumber)
   })
