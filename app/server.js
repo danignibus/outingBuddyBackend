@@ -75,10 +75,8 @@ controller.setupWebserver(port, function (err, webserver) {
 
 controller.hears(['I want an outing!'], 'message_received', (bot, message) => {
     bot.startConversation(message, (err, convo) => {
-        convo.say('Woo hoo! Finding you one now.')
         Outings.getRandomOuting((err, outing) => {
-            convo.say(`Outing name: ${outing.title}`)
-            convo.say(`Outing description: ${outing.description}`)
+            convo.say(`${outing.description}`)
         })
     })
 })
