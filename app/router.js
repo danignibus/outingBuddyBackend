@@ -12,4 +12,7 @@ router.get('/', (req, res) => {
 router.route('/outing')
   .get(Outings.getRandomOuting);
 
+router.route('/outingDuration')
+	.get(Outings.initiateOuting);
+
 export default router;
