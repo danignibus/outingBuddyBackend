@@ -9,10 +9,10 @@ router.get('/', (req, res) => {
   	res.json({ message: 'Welcome to your outings!!' });
 });
 
-router.route('/outing')
-  .get(Outings.getRandomOuting);
+router.route('/randomOuting')
+  	.get(Outings.getRandomOuting);
 
-router.route('/outingDuration')
+router.route('/outing')
 	.get(Outings.initiateOuting);
 
 export default router;
