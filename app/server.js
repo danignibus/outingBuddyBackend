@@ -83,7 +83,7 @@ controller.hears(['I want an outing!'], 'message_received', (bot, message) => {
     })
 })
 
-controller.hears(['Journal'], 'message_received', (bot, message) => {
+controller.hears(['Record'], 'message_received', (bot, message) => {
   console.log('da message user: ' + message.user)
   bot.startConversation(message, (err, convo) => {
     convo.ask('Type in a short entry about your best experience from the past three days! Please only send one text.', (res, convo) => {
