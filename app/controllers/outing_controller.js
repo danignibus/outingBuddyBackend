@@ -1,4 +1,5 @@
 import Outing from '../models/outing_model';
+var consts = require('../consts.js');
 
 export const createOuting = (req, res) => {
 	const outing = new Outing();
@@ -34,23 +35,33 @@ export const getRandomOuting = (req, res) => {
 
 export const initiateOuting = (req, res) => {
 	var duration = req.query.duration;
+	var participants = req.query.participants;
+	console.log('request participants' + req.query.participants);
+	if (participants == 'UNLIMITED') {
+		participants = consts.MAX;
+	};
+	console.log('participants' + participants);
 
+	//TODO: will need to change this when an activity doesn't have unlimited participants
 	Outing.
 		findOne({}).
-		where('duration').lte(duration).exec(
-		function(err, obj) {
+		where('duration').lte(duration).
+		exec(function(err, obj) {
+			console.log('got' + obj);
 			getSecondStep(req, res, obj);
-			//res.json({ message: obj})
 		});
 }
 
 export const getSecondStep = (req, res, firstStep) => {
+	console.log('first item' + req.query);
+	console.log(firstStep);
+	console.log('second item' + firstStep.duration); 
 	var neededDuration = req.query.duration - firstStep.duration;
 	Outing.
-		findOne({'duration': neededDuration}).exec(
-		function(err, obj) {
+		findOne({'duration': neededDuration}).
+		// where('participants').lte(participants).
+		exec(function(err, obj) {
 			res.json({
-				'steps': [firstStep.id, obj.id],
 				'detailedSteps': [firstStep, obj]
 			})
 		});
