@@ -58,6 +58,7 @@ export const getSecondStep = (req, res, firstStep) => {
 	var neededDuration = req.query.duration - firstStep.duration;
 	Outing.
 		findOne({'duration': neededDuration}).
+		where('_id').ne(firstStep._id).
 		// where('participants').lte(participants).
 		exec(function(err, obj) {
 			if (obj == null) {
