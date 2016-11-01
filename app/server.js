@@ -61,7 +61,7 @@ controller.setupWebserver(port, function (err, webserver) {
                             if (err) {
                                 console.log(err);
                             }
-                            convo.say('Please text in "Record" to initiate recording a great experience from the past three days')
+                            convo.say('Thanks for participating in our thesis! Please text in "Record" to initiate recording a great experience from the past three days')
                             convo.next();
                         })
                     }
@@ -75,7 +75,7 @@ controller.setupWebserver(port, function (err, webserver) {
     })
 })
 
-controller.hears(['I want an outing!'], 'message_received', (bot, message) => {
+controller.hears(['Outing'], 'message_received', (bot, message) => {
     bot.startConversation(message, (err, convo) => {
         Outings.getRandomOutingStudy((err, outing) => {
             convo.say(`${outing.description}`)
@@ -99,8 +99,7 @@ controller.hears(['COMMANDS'], 'message_received', (bot, message) => {
     var phoneNumber = message.user
     var user = Users.getUser((err, user, phoneNumber) => {
         if (user.group == 1) {
-            convo.say('Type "I want an outing!" to generate an outing for a specified time increment. \
-                Type "Record" to record a memorable activity you\'ve participated in recently!')
+            convo.say('Type "Outing" to generate a random outing. Type "Record" to record a memorable activity you\'ve participated in recently!')
         }
         else {
             convo.say('We\'ll be prompting you for an entry soon. Stay tuned!')
