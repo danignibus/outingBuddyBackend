@@ -1,5 +1,10 @@
-import Outing from '../models/outing_model';
 var consts = require('../consts.js');
+var Routific = require("routific");
+var request = require('request');
+
+const util = require('util')
+import Outing from '../models/outing_model';
+
 
 export const createOuting = (req, res) => {
 	const outing = new Outing();
@@ -101,9 +106,10 @@ export const initiateOuting = (req, res) => {
 export const completeOuting = (req, res, outing, remainingDuration, stepIds) => {
 	if (remainingDuration == 0) {
 		console.log('entered base case' + outing);
-		res.json({
-			'detailedSteps': outing
-		})
+		// res.json({
+		// 	'detailedSteps': outing
+		// })
+		optimizeRoute(req, res, outing);
 	}
 	else if (remainingDuration > 0) {
 		console.log('entered not base case');
@@ -121,8 +127,75 @@ export const completeOuting = (req, res, outing, remainingDuration, stepIds) => 
 					completeOuting(req, res, outing, remainingDuration, stepIds);
 				});
 			})
-
 	}
+}
+
+export const optimizeRoute = (req, res, outing) => {
+	var data = {};
+	var visits = {};
+
+	data.visits = visits;
+
+	for (var i=0; i<outing.length; i++) {
+		var orderName = `order_${i}`;
+		var stepLocation = {
+			"location": {
+				"name": outing[i].title,
+				"lat": outing[i].lat,
+				"lng": outing[i].lng
+			},
+		}
+		data.visits[outing[i]._id] = stepLocation;
+	}
+
+	data.fleet = {
+        "vehicle_1": {
+            "start_location": {
+                "id": "initialLocation",
+                "name": "Baker Berry",
+                "lat": 43.705267,
+                "lng": -72.288719
+	        },
+	    }
+	}
+
+	var options = {
+	    url: 'https://api.routific.com/v1/vrp',
+	    json: data,
+	    headers: {
+	        'Authorization': 'bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1ODFhNzI1NzUwY2MxMjUxN2QxZTcwZjgiLCJpYXQiOjE0NzgxMjgyMTV9.ejaVxuKZSuk54YWfeJ7s-s7hQz91ZTIc0ntt_M6irPY'
+	    }
+	};
+	function callback(error, response, body) {
+	    if (!error && response.statusCode == 200) {
+	        // TODO: Fix lookup stuff
+	        console.log(body);
+	        console.log(util.inspect(body, {showHidden: false, depth: null}))
+	        var lookup = {};
+	        for (var i = 0; i < outing.length; i++) {
+	        	console.log('id' + outing[i]._id);
+	        	lookup[outing[i]._id] = outing[i];
+	        }
+	        var finalResult = [];
+
+	        var solution = body.solution;
+	        var route = solution.vehicle_1;
+
+	       	//NOTE: Starting at 1 because initial location is start location
+	        for (var j = 1; j < route.length; j++) {
+	        	var nextId = route[j].location_id;
+	        	finalResult.push(lookup[nextId]);
+	        }
+	    	res.json({
+				'detailedSteps': finalResult
+			})
+	    }
+	    else {
+	        // ... Handle error
+	        console.log(response.statusCode + ': ' + body.error);
+	    }
+	}
+	request.post(options, callback);
 }
 
 // export const getSecondStep = (req, res, firstStep) => {
@@ -154,9 +227,3 @@ export const getRandomOutingStudy = (callback) => {
 			Outing.findOne().skip(skip).exec(callback);
 		});
 }
-
-
-//get total duration of outing from request
-//get random outing that is equal to or under that duration --??
-//use this outing
-//get another outing that fills the remainer of the time difference

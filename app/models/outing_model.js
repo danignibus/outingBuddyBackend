@@ -5,6 +5,9 @@ const OutingSchema = new Schema({
   title: String,
   description: String,
   duration: Number,
+  participants: String,
+  lat: Number,
+  lng: Number
 });
 
 // create model class
