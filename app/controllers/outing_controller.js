@@ -104,21 +104,33 @@ export const initiateOuting = (req, res) => {
 }
 
 export const completeOuting = (req, res, outing, remainingDuration, stepIds) => {
+	var radius = 1/3959;
 	if (remainingDuration == 0) {
 		console.log('entered base case' + outing);
-		// res.json({
-		// 	'detailedSteps': outing
-		// })
-		optimizeRoute(req, res, outing);
+		res.json({
+			'detailedSteps': outing
+		})
+		//optimizeRoute(req, res, outing);
 	}
 	else if (remainingDuration > 0) {
 		console.log('entered not base case');
+		var jsonObject = outing[0].toJSON();
+		var query = {
+		    "loc" : {
+		        $geoWithin : {
+		            $centerSphere : [jsonObject.loc.coordinates, radius ]
+		        }
+		    },
+		    '_id': {
+		    	$nin: stepIds
+		    }
+		};
 		Outing
-			.find({ '_id': { $nin: stepIds } }).where('duration').lte(remainingDuration).
+			.find(query).where('duration').lte(remainingDuration).
 			count().
 			exec((err, count) => {
 				let skip = Math.floor(Math.random() * count);
-				Outing.findOne({ '_id': { $nin: stepIds } }).where('duration').lte(remainingDuration).
+				Outing.findOne(query).where('duration').lte(remainingDuration).
 				skip(skip)
 				.exec(function(err, obj) {
 					outing.push(obj);
@@ -128,6 +140,29 @@ export const completeOuting = (req, res, outing, remainingDuration, stepIds) => 
 				});
 			})
 	}
+
+	//get miles to radian
+
+	// var outing2 = Outing.findOne({'title': 'Skinny pancake'})
+	// 	.exec((err, obj) => {
+	// 		var jsonObject = obj.toJSON();
+
+	// 		var query = {
+	// 		    "loc" : {
+	// 		        $geoWithin : {
+	// 		            $centerSphere : [jsonObject.loc.coordinates, radius ]
+	// 		        }
+	// 		    },
+	// 		    '_id': {
+	// 		    	$nin: stepIds
+	// 		    }
+	// 		};
+	// 		// Step 3: Query points.
+	// 		Outing.find(query)
+	// 			.exec((err, obj) => {
+	// 				console.log(util.inspect(obj, {showHidden: false, depth: null}))
+	// 			})
+	// })
 }
 
 export const optimizeRoute = (req, res, outing) => {
