@@ -121,9 +121,9 @@ export const completeOuting = (req, res, outing, remainingDuration, stepIds) => 
 		            $centerSphere : [jsonObject.loc.coordinates, radius ]
 		        }
 		    },
-		    // '_id': {
-		    // 	$nin: stepIds
-		    // }
+		    "_id": {
+		    	$nin: stepIds
+		    }
 		};
 		Outing
 			.find(query).where('duration').lte(remainingDuration).
