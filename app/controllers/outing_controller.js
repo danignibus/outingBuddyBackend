@@ -104,7 +104,7 @@ export const initiateOuting = (req, res) => {
 }
 
 export const completeOuting = (req, res, outing, remainingDuration, stepIds) => {
-	var radius = 1/3959;
+	var radius = .2/3959; 
 	if (remainingDuration == 0) {
 		console.log('entered base case' + outing);
 		res.json({
@@ -121,9 +121,9 @@ export const completeOuting = (req, res, outing, remainingDuration, stepIds) => 
 		            $centerSphere : [jsonObject.loc.coordinates, radius ]
 		        }
 		    },
-		    '_id': {
-		    	$nin: stepIds
-		    }
+		    // '_id': {
+		    // 	$nin: stepIds
+		    // }
 		};
 		Outing
 			.find(query).where('duration').lte(remainingDuration).
