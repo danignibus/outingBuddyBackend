@@ -104,7 +104,7 @@ export const initiateOuting = (req, res) => {
 }
 
 export const completeOuting = (req, res, outing, remainingDuration, stepIds) => {
-	var radius = .2/3959; 
+	var radius = 3/3959; 
 	if (remainingDuration == 0) {
 		console.log('entered base case' + outing);
 		res.json({
@@ -129,6 +129,7 @@ export const completeOuting = (req, res, outing, remainingDuration, stepIds) => 
 			.find(query).where('duration').lte(remainingDuration).
 			count().
 			exec((err, count) => {
+				console.log('count' + count);
 				let skip = Math.floor(Math.random() * count);
 				Outing.findOne(query).where('duration').lte(remainingDuration).
 				skip(skip)
