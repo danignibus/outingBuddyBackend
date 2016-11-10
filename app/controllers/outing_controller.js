@@ -67,10 +67,11 @@ export const initiateOuting = (req, res) => {
 	// 		participants = consts.MAX;
 	// 	};
 
-	// 	//TODO: will need to change this when an activity doesn't have unlimited participants
+	// TODO: will need to change this when an activity doesn't have unlimited participants
 	var halfDuration = Math.ceil(duration/2);
 	var outing = [];
 	var stepIds = [];
+
 	//find significant outing (i.e. at least half time of outing)
 	Outing
 		.find({'duration': halfDuration}).
@@ -104,32 +105,35 @@ export const initiateOuting = (req, res) => {
 }
 
 export const completeOuting = (req, res, outing, remainingDuration, stepIds) => {
-	var radius = 3/3959; 
+	var radiusInRadians = 3/3959;
 	if (remainingDuration == 0) {
-		console.log('entered base case' + outing);
+		console.log('Entered base case' + outing);
 		res.json({
 			'detailedSteps': outing
 		})
-		//optimizeRoute(req, res, outing);
+		//optimizeRouteXL(req, res, outing);
 	}
 	else if (remainingDuration > 0) {
-		console.log('entered not base case');
+		console.log('Entered recursive loop');
 		var jsonObject = outing[0].toJSON();
+
+		//query for steps within a given radius and that have not already been added to the outing
 		var query = {
 		    "loc" : {
 		        $geoWithin : {
-		            $centerSphere : [jsonObject.loc.coordinates, radius ]
+		            $centerSphere : [jsonObject.loc.coordinates, radiusInRadians ]
 		        }
 		    },
 		    "_id": {
 		    	$nin: stepIds
 		    }
 		};
+
+		//TODO: find a different way to randomize where I don't have to pull twice
 		Outing
 			.find(query).where('duration').lte(remainingDuration).
 			count().
 			exec((err, count) => {
-				console.log('count' + count);
 				let skip = Math.floor(Math.random() * count);
 				Outing.findOne(query).where('duration').lte(remainingDuration).
 				skip(skip)
@@ -141,32 +145,10 @@ export const completeOuting = (req, res, outing, remainingDuration, stepIds) => 
 				});
 			})
 	}
-
-	//get miles to radian
-
-	// var outing2 = Outing.findOne({'title': 'Skinny pancake'})
-	// 	.exec((err, obj) => {
-	// 		var jsonObject = obj.toJSON();
-
-	// 		var query = {
-	// 		    "loc" : {
-	// 		        $geoWithin : {
-	// 		            $centerSphere : [jsonObject.loc.coordinates, radius ]
-	// 		        }
-	// 		    },
-	// 		    '_id': {
-	// 		    	$nin: stepIds
-	// 		    }
-	// 		};
-	// 		// Step 3: Query points.
-	// 		Outing.find(query)
-	// 			.exec((err, obj) => {
-	// 				console.log(util.inspect(obj, {showHidden: false, depth: null}))
-	// 			})
-	// })
 }
 
-export const optimizeRoute = (req, res, outing) => {
+//function to optimize route using Routific API.
+export const optimizeRouteRoutific = (req, res, outing) => {
 	var data = {};
 	var visits = {};
 
@@ -196,15 +178,16 @@ export const optimizeRoute = (req, res, outing) => {
 	}
 
 	var options = {
-	    url: 'https://api.routific.com/v1/vrp',
-	    json: data,
-	    headers: {
-	        'Authorization': 'bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1ODFhNzI1NzUwY2MxMjUxN2QxZTcwZjgiLCJpYXQiOjE0NzgxMjgyMTV9.ejaVxuKZSuk54YWfeJ7s-s7hQz91ZTIc0ntt_M6irPY'
-	    }
+	   url: 'https://api.routific.com/v1/vrp',
+	   json: data,
+	   headers: {
+	       'Authorization': 'bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1ODFhNzI1NzUwY2MxMjUxN2QxZTcwZjgiLCJpYXQiOjE0NzgxMjgyMTV9.ejaVxuKZSuk54YWfeJ7s-s7hQz91ZTIc0ntt_M6irPY'
+	   }
 	};
 	function callback(error, response, body) {
 	    if (!error && response.statusCode == 200) {
 	        // TODO: Fix lookup stuff
+	        console.log('got here');
 	        console.log(body);
 	        console.log(util.inspect(body, {showHidden: false, depth: null}))
 	        var lookup = {};
@@ -225,6 +208,64 @@ export const optimizeRoute = (req, res, outing) => {
 	    	res.json({
 				'detailedSteps': finalResult
 			})
+	    }
+	    else {
+	    	console.log('got to else');
+	        // ... Handle error
+	        console.log(response.statusCode + ': ' + body.error);
+	    }
+	}
+	request.post(options, callback);
+}
+
+//function to optimize route using RouteXL API.
+export const optimizeRouteXL = (req, res, outing) => {
+	var locations = [];
+
+	for (var i=0; i<outing.length; i++) {
+		var orderName = `order_${i}`;
+		var stepLocation = {
+			"address": outing[i].title,
+			"lat": `${outing[i].lat}`,
+			"lng": `${outing[i].lng}`
+		}
+		locations.push(stepLocation);
+	}
+
+	//TODO: remove before pushing!!
+	var auth = "Basic " + new Buffer(ENV['ROUTEXL_USERNAME'] + ":" + ENV['ROUTEXL_PASSWORD']).toString("base64");
+
+	var options = {
+	    url: 'https://api.routexl.nl/tour',
+	    form: { locations: locations },
+	    headers: {
+	        'Authorization': auth
+	    }
+	};
+
+	function callback(error, response, body) {
+	    if (!error && response.statusCode == 200) {
+	        //TODO: Fix lookup stuff
+	        console.log(body);
+	        console.log(util.inspect(body, {showHidden: false, depth: null}))
+	  //       var lookup = {};
+	  //       for (var i = 0; i < outing.length; i++) {
+	  //       	console.log('id' + outing[i]._id);
+	  //       	lookup[outing[i]._id] = outing[i];
+	  //       }
+	  //       var finalResult = [];
+
+	  //       var solution = body.solution;
+	  //       var route = solution.vehicle_1;
+
+	  //      	//NOTE: Starting at 1 because initial location is start location
+	  //       for (var j = 1; j < route.length; j++) {
+	  //       	var nextId = route[j].location_id;
+	  //       	finalResult.push(lookup[nextId]);
+	  //       }
+	  //   	res.json({
+			// 	'detailedSteps': finalResult
+			// })
 	    }
 	    else {
 	        // ... Handle error
