@@ -108,10 +108,10 @@ export const completeOuting = (req, res, outing, remainingDuration, stepIds) => 
 	var radiusInRadians = 3/3959;
 	if (remainingDuration == 0) {
 		console.log('Entered base case' + outing);
-		res.json({
-			'detailedSteps': outing
-		})
-		//optimizeRouteXL(req, res, outing);
+		// res.json({
+		// 	'detailedSteps': outing
+		// })
+		optimizeRouteXL(req, res, outing);
 	}
 	else if (remainingDuration > 0) {
 		console.log('Entered recursive loop');
@@ -232,8 +232,7 @@ export const optimizeRouteXL = (req, res, outing) => {
 		locations.push(stepLocation);
 	}
 
-	//TODO: remove before pushing!!
-	var auth = "Basic " + new Buffer(ENV['ROUTEXL_USERNAME'] + ":" + ENV['ROUTEXL_PASSWORD']).toString("base64");
+	var auth = "Basic " + new Buffer(process.env.ROUTEXL_USERNAME + ":" + process.env.ROUTEXL_PASSWORD).toString("base64");
 
 	var options = {
 	    url: 'https://api.routexl.nl/tour',
@@ -246,26 +245,30 @@ export const optimizeRouteXL = (req, res, outing) => {
 	function callback(error, response, body) {
 	    if (!error && response.statusCode == 200) {
 	        //TODO: Fix lookup stuff
-	        console.log(body);
-	        console.log(util.inspect(body, {showHidden: false, depth: null}))
-	  //       var lookup = {};
-	  //       for (var i = 0; i < outing.length; i++) {
-	  //       	console.log('id' + outing[i]._id);
-	  //       	lookup[outing[i]._id] = outing[i];
-	  //       }
-	  //       var finalResult = [];
+	        //create map
+	        var lookup = {};
+	        for (var i = 0; i < outing.length; i++) {
+	        	lookup[outing[i].title] = outing[i];
+	        }
+	        var finalResult = [];
+	        var parsedResult = JSON.parse(body);
+	        var finalRoute = parsedResult.route;
 
-	  //       var solution = body.solution;
-	  //       var route = solution.vehicle_1;
+	        var length = 0;
+	        for (var step in finalRoute) {
+	        	if (finalRoute.hasOwnProperty(step)) {
+	        		length++;
+	        	}
+ 	        }
+ 	        for (var j=0; j< length; j++) {
+ 	        	var nextStepName = finalRoute[j].name;
+ 	        	finalResult.push(lookup[nextStepName]);
+ 	        }
 
-	  //      	//NOTE: Starting at 1 because initial location is start location
-	  //       for (var j = 1; j < route.length; j++) {
-	  //       	var nextId = route[j].location_id;
-	  //       	finalResult.push(lookup[nextId]);
-	  //       }
-	  //   	res.json({
-			// 	'detailedSteps': finalResult
-			// })
+
+	        res.json({
+	        	'detailedSteps': finalResult
+	        });
 	    }
 	    else {
 	        // ... Handle error
