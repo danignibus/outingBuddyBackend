@@ -222,6 +222,13 @@ export const optimizeRouteRoutific = (req, res, outing) => {
 export const optimizeRouteXL = (req, res, outing) => {
 	var locations = [];
 
+	var theGreen = {
+		"address": "Green",
+		"lat": 43.705267,
+        "lng": -72.288719
+	}
+	locations.push(theGreen);
+
 	for (var i=0; i<outing.length; i++) {
 		var orderName = `order_${i}`;
 		var stepLocation = {
@@ -231,6 +238,8 @@ export const optimizeRouteXL = (req, res, outing) => {
 		}
 		locations.push(stepLocation);
 	}
+
+	locations.push(theGreen);
 
 	var auth = "Basic " + new Buffer(process.env.ROUTEXL_USERNAME + ":" + process.env.ROUTEXL_PASSWORD).toString("base64");
 
@@ -253,16 +262,33 @@ export const optimizeRouteXL = (req, res, outing) => {
 	        var finalResult = [];
 	        var parsedResult = JSON.parse(body);
 	        var finalRoute = parsedResult.route;
-
+	        console.log('original outing' + outing);
+	        console.log('new outing');
+	        console.log(util.inspect(finalRoute, false, null))
 	        var length = 0;
 	        for (var step in finalRoute) {
 	        	if (finalRoute.hasOwnProperty(step)) {
 	        		length++;
 	        	}
  	        }
- 	        for (var j=0; j< length; j++) {
+
+ 	        //start at 1, end at length -1 to remove the Green from outing
+ 	        for (var j=1; j< length -1 ; j++) {
  	        	var nextStepName = finalRoute[j].name;
- 	        	finalResult.push(lookup[nextStepName]);
+ 	        	// var step = outing.filter(function( obj) {
+ 	        	// 	return obj.name == nextStepName;
+ 	        	// });
+				console.log('next step name' + nextStepName);
+
+ 	        	var result  = outing.filter(function(o){
+ 	        		console.log('got here');
+ 	        		return o.title == nextStepName;} );
+ 	        	console.log('result' + result);
+ 	        	if (result) {
+ 	        		finalResult.push(result[0]);
+ 	        	};
+
+ 	        	//finalResult.push(lookup[nextStepName]);
  	        }
 
 
@@ -277,27 +303,6 @@ export const optimizeRouteXL = (req, res, outing) => {
 	}
 	request.post(options, callback);
 }
-
-// export const getSecondStep = (req, res, firstStep) => {
-// 	var neededDuration = req.query.duration - firstStep.duration;
-// 	Outing.
-// 		findOne({'duration': neededDuration}).
-// 		where('_id').ne(firstStep._id).
-// 		// where('participants').lte(participants).
-// 		exec(function(err, obj) {
-// 			if (obj == null) {
-// 				Outing.findOne({'duration': req.query.duration}).exec(function(err, obj) {
-// 					res.json({
-// 						'detailedSteps': [obj]
-// 					});
-// 				});
-// 			} else {
-// 				res.json({
-// 					'detailedSteps': [firstStep, obj]
-// 				})
-// 			}
-// 		});
-// }
 
 export const getRandomOutingStudy = (callback) => {
 	Outing
