@@ -4,32 +4,17 @@ import jwt from 'jwt-simple';
 import dotenv from 'dotenv';
 dotenv.config({ silent: true });
 
-// export const getUser = (req, res) => {
-//  Outing.find({}, function(err,obj) { console.log(obj); });
-// };
-
-// export const getUserType = (req, res) => {
-//  User.find({}, function(err, obj) { console.log(obj);});
-// };
-
 export const getUser = (callback, phoneNumber) => {
     User.findOne({ 'phoneNumber': phoneNumber }).exec(callback);
-}
-
-// export const getJournalUsers = (callback) => {
-//  // var users = User.find({ 'group' : '2'});
-//  // console.log(users);
-//  User.find({ 'group': '2'}).exec(callback);
-// }
+};
 
 export const getJournalUsers = (callback) => {
     User.find({'group': '2'}).exec(callback);
-}
-
+};
 
 export const getUsers = (callback) => {
     User.find().exec(callback);
-}
+};
 
 export const updateLastPrompted = (phoneNumber) => {
     //get user with that phone number, update lastPrompted to current time
@@ -42,7 +27,7 @@ export const updateLastPrompted = (phoneNumber) => {
                 console.log('got an error in updateLastPrompted');
             }
         });
-}
+};
 
 export const saveJournalEntry = (phoneNumber, journal) => {
     //get user with that phone number, push journal onto journals array
@@ -54,13 +39,13 @@ export const saveJournalEntry = (phoneNumber, journal) => {
                 console.log('got an error in saveJournalEntry');
             }
         });
-}
+};
 
 //Return a new token
 export const signin = (req, res, next) => {
     console.log('got to signin');
     res.send({ token: tokenForUser(req.user) });
-}
+};
 
 export const signup = (req, res, next) => {
     const phoneNumber = req.query.phoneNumber;
@@ -91,13 +76,13 @@ export const signup = (req, res, next) => {
         } else {
             return res.status(409).send('User already exists');
         }
-    })
+    });
     
     // if user exists then return an error. If not, use the User model to create a new user.
     // Save the new User object
     // this is similar to how you created a Post
     // and then return a token same as you did in in signin
-}
+};
 
 function tokenForUser(user) {
     const timestamp = new Date().getTime();

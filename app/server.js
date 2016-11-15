@@ -81,8 +81,8 @@ controller.hears(['Outing'], 'message_received', (bot, message) => {
         Outings.getRandomOutingStudy((err, outing) => {
             convo.say(`${outing.description}`)
         })
-    })
-})
+    });
+});
 
 controller.hears(['Record'], 'message_received', (bot, message) => {
   console.log('da message user: ' + message.user)

@@ -74,14 +74,12 @@ export const initiateOuting = (req, res) => {
 export const completeOuting = (req, res, outing, remainingDuration, stepIds) => {
     var radiusInRadians = 3/3959;
     if (remainingDuration == 0) {
-        console.log('Entered base case' + outing);
         // res.json({
         //  'detailedSteps': outing
         // })
         optimizeRouteXL(req, res, outing);
     }
     else if (remainingDuration > 0) {
-        console.log('Entered recursive loop');
         var jsonObject = outing[0].toJSON();
 
         //query for steps within a given radius and that have not already been added to the outing
@@ -153,13 +151,8 @@ export const optimizeRouteRoutific = (req, res, outing) => {
     };
     function callback(error, response, body) {
         if (!error && response.statusCode == 200) {
-            // TODO: Fix lookup stuff
-            console.log('got here');
-            console.log(body);
-            console.log(util.inspect(body, {showHidden: false, depth: null}))
             var lookup = {};
             for (var i = 0; i < outing.length; i++) {
-                console.log('id' + outing[i]._id);
                 lookup[outing[i]._id] = outing[i];
             }
             var finalResult = [];
@@ -177,7 +170,6 @@ export const optimizeRouteRoutific = (req, res, outing) => {
             })
         }
         else {
-            console.log('got to else');
             // ... Handle error
             console.log(response.statusCode + ': ' + body.error);
         }
@@ -224,7 +216,6 @@ export const optimizeRouteXL = (req, res, outing) => {
 
     function callback(error, response, body) {
         if (!error && response.statusCode == 200) {
-            //TODO: Fix lookup stuff
             //create map
             var lookup = {};
             for (var i = 0; i < outing.length; i++) {
@@ -233,7 +224,6 @@ export const optimizeRouteXL = (req, res, outing) => {
             var finalResult = [];
             var parsedResult = JSON.parse(body);
             var finalRoute = parsedResult.route;
-            console.log(util.inspect(finalRoute, false, null))
             var length = 0;
             for (var step in finalRoute) {
                 if (finalRoute.hasOwnProperty(step)) {
@@ -244,19 +234,7 @@ export const optimizeRouteXL = (req, res, outing) => {
             //start at 1, end at length -1 to remove the Green from outing
             for (var j=1; j< length -1 ; j++) {
                 var nextStepName = finalRoute[j].name;
-                // var step = outing.filter(function( obj) {
-                //  return obj.name == nextStepName;
-                // });
-                console.log('next step name' + nextStepName);
-
-                var result  = outing.filter(function(o){
-                    return o.title == nextStepName;} );
-                console.log('result' + result);
-                if (result) {
-                    finalResult.push(result[0]);
-                };
-
-                //finalResult.push(lookup[nextStepName]);
+                finalResult.push(lookup[nextStepName]);
             }
 
             res.json({
