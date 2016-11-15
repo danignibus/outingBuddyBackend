@@ -4,311 +4,278 @@ var request = require('request');
 
 const util = require('util')
 import Outing from '../models/outing_model';
+import dotenv from 'dotenv';
+dotenv.config({ silent: true });
 
 
 export const createOuting = (req, res) => {
-	const outing = new Outing();
-	outing.title = "hello!";
-	outing.description = "description";
+    const outing = new Outing();
+    outing.title = "hello!";
+    outing.description = "description";
 
-	outing.save()
-		.then(result => {
-			console.log('outing created!')
-		})
-	.catch(error => {
-		console.log('error')
-	});
+    outing.save()
+        .then(result => {
+            console.log('outing created!')
+        })
+    .catch(error => {
+        console.log('error')
+    });
 };
 
 export const getOutings = (req, res) => {
-	Outing.find({}, function(err,obj) { console.log(obj); });
+    Outing.find({}, function(err,obj) { console.log(obj); });
 };
 
 export const getRandomOuting = (req, res) => {
-  	Outing
-		.count()
-		.exec((err, count) => {
-			let skip = Math.floor(Math.random() * count);
-			Outing.findOne().skip(skip).exec(function(err, obj) {
-				if (err) {
-					return res.send();
-				}
-				res.json({ message: obj });
-			});
-		});
+    Outing
+        .count()
+        .exec((err, count) => {
+            let skip = Math.floor(Math.random() * count);
+            Outing.findOne().skip(skip).exec(function(err, obj) {
+                if (err) {
+                    return res.send();
+                }
+                res.json({ message: obj });
+            });
+        });
 };
 
-// export const initiateOuting = (req, res) => {
-// 	var duration = req.query.duration;
-// 	var participants = req.query.participants;
-// 	if (participants == 'UNLIMITED') {
-// 		participants = consts.MAX;
-// 	};
-
-// 	//TODO: will need to change this when an activity doesn't have unlimited participants
-// 	Outing
-// 		.find().where('duration').lte(duration).
-// 		count().
-// 		exec((err, count) => {
-// 			let skip = Math.floor(Math.random() * count);
-// 			Outing.findOne({}).where('duration').lte(duration).
-// 			skip(skip)
-// 			.exec(function(err, obj) {
-// 				getSecondStep(req, res, obj);
-// 			});
-// 		})
-// }
-
-
 export const initiateOuting = (req, res) => {
-	var duration = req.query.duration;
-	// 	var participants = req.query.participants;
-	// 	if (participants == 'UNLIMITED') {
-	// 		participants = consts.MAX;
-	// 	};
+    var duration = req.query.duration;
+    //  var participants = req.query.participants;
+    //  if (participants == 'UNLIMITED') {
+    //      participants = consts.MAX;
+    //  };
 
-	// TODO: will need to change this when an activity doesn't have unlimited participants
-	var halfDuration = Math.ceil(duration/2);
-	var outing = [];
-	var stepIds = [];
+    // TODO: will need to change this when an activity doesn't have unlimited participants
+    var halfDuration = Math.ceil(duration/2);
+    var outing = [];
+    var stepIds = [];
 
-	//find significant outing (i.e. at least half time of outing)
-	Outing
-		.find({'duration': halfDuration}).
-		count().
-		exec((err, count) => {
-			let skip = Math.floor(Math.random() * count);
-			Outing.findOne({'duration': halfDuration}).
-			skip(skip)
-			.exec(function(err, obj) {
-				// getSecondStep(req, res, obj);
-				outing.push(obj);
-				stepIds.push(obj._id);
-				var remainingDuration = req.query.duration - obj.duration;
-				console.log(remainingDuration);
-				completeOuting(req, res, outing, remainingDuration, stepIds);
-			});
-		})
-	// 	Outing
-// 		.find().where('duration').lte(duration).
-// 		count().
-// 		exec((err, count) => {
-// 			let skip = Math.floor(Math.random() * count);
-// 			Outing.findOne({}).where('duration').lte(duration).
-// 			skip(skip)
-// 			.exec(function(err, obj) {
-// 				getSecondStep(req, res, obj);
-// 			});
-// 		})
-// }
-
+    //find significant outing (i.e. at least half time of outing)
+    Outing
+        .find({'duration': halfDuration}).
+        count().
+        exec((err, count) => {
+            let skip = Math.floor(Math.random() * count);
+            Outing.findOne({'duration': halfDuration}).
+            skip(skip)
+            .exec(function(err, obj) {
+                // getSecondStep(req, res, obj);
+                outing.push(obj);
+                stepIds.push(obj._id);
+                var remainingDuration = req.query.duration - obj.duration;
+                console.log(remainingDuration);
+                completeOuting(req, res, outing, remainingDuration, stepIds);
+            });
+        });
 }
 
 export const completeOuting = (req, res, outing, remainingDuration, stepIds) => {
-	var radiusInRadians = 3/3959;
-	if (remainingDuration == 0) {
-		console.log('Entered base case' + outing);
-		// res.json({
-		// 	'detailedSteps': outing
-		// })
-		optimizeRouteXL(req, res, outing);
-	}
-	else if (remainingDuration > 0) {
-		console.log('Entered recursive loop');
-		var jsonObject = outing[0].toJSON();
+    var radiusInRadians = 3/3959;
+    if (remainingDuration == 0) {
+        console.log('Entered base case' + outing);
+        // res.json({
+        //  'detailedSteps': outing
+        // })
+        optimizeRouteXL(req, res, outing);
+    }
+    else if (remainingDuration > 0) {
+        console.log('Entered recursive loop');
+        var jsonObject = outing[0].toJSON();
 
-		//query for steps within a given radius and that have not already been added to the outing
-		var query = {
-		    "loc" : {
-		        $geoWithin : {
-		            $centerSphere : [jsonObject.loc.coordinates, radiusInRadians ]
-		        }
-		    },
-		    "_id": {
-		    	$nin: stepIds
-		    }
-		};
+        //query for steps within a given radius and that have not already been added to the outing
+        var query = {
+            "loc" : {
+                $geoWithin : {
+                    $centerSphere : [jsonObject.loc.coordinates, radiusInRadians ]
+                }
+            },
+            "_id": {
+                $nin: stepIds
+            }
+        };
 
-		//TODO: find a different way to randomize where I don't have to pull twice
-		Outing
-			.find(query).where('duration').lte(remainingDuration).
-			count().
-			exec((err, count) => {
-				let skip = Math.floor(Math.random() * count);
-				Outing.findOne(query).where('duration').lte(remainingDuration).
-				skip(skip)
-				.exec(function(err, obj) {
-					outing.push(obj);
-					stepIds.push(obj._id);
-					remainingDuration = remainingDuration - obj.duration;
-					completeOuting(req, res, outing, remainingDuration, stepIds);
-				});
-			})
-	}
+        //TODO: find a different way to randomize where I don't have to pull twice
+        Outing
+            .find(query).where('duration').lte(remainingDuration).
+            count().
+            exec((err, count) => {
+                let skip = Math.floor(Math.random() * count);
+                Outing.findOne(query).where('duration').lte(remainingDuration).
+                skip(skip)
+                .exec(function(err, obj) {
+                    outing.push(obj);
+                    stepIds.push(obj._id);
+                    remainingDuration = remainingDuration - obj.duration;
+                    completeOuting(req, res, outing, remainingDuration, stepIds);
+                });
+            })
+    }
 }
 
 //function to optimize route using Routific API.
 export const optimizeRouteRoutific = (req, res, outing) => {
-	var data = {};
-	var visits = {};
+    var data = {};
+    var visits = {};
 
-	data.visits = visits;
+    data.visits = visits;
 
-	for (var i=0; i<outing.length; i++) {
-		var orderName = `order_${i}`;
-		var stepLocation = {
-			"location": {
-				"name": outing[i].title,
-				"lat": outing[i].lat,
-				"lng": outing[i].lng
-			},
-		}
-		data.visits[outing[i]._id] = stepLocation;
-	}
+    for (var i=0; i<outing.length; i++) {
+        var orderName = `order_${i}`;
+        var stepLocation = {
+            "location": {
+                "name": outing[i].title,
+                "lat": outing[i].lat,
+                "lng": outing[i].lng
+            },
+        }
+        data.visits[outing[i]._id] = stepLocation;
+    }
 
-	data.fleet = {
+    data.fleet = {
         "vehicle_1": {
             "start_location": {
                 "id": "initialLocation",
                 "name": "Baker Berry",
                 "lat": 43.705267,
                 "lng": -72.288719
-	        },
-	    }
-	}
+            },
+        }
+    }
 
-	var options = {
-	   url: 'https://api.routific.com/v1/vrp',
-	   json: data,
-	   headers: {
-	       'Authorization': 'bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1ODFhNzI1NzUwY2MxMjUxN2QxZTcwZjgiLCJpYXQiOjE0NzgxMjgyMTV9.ejaVxuKZSuk54YWfeJ7s-s7hQz91ZTIc0ntt_M6irPY'
-	   }
-	};
-	function callback(error, response, body) {
-	    if (!error && response.statusCode == 200) {
-	        // TODO: Fix lookup stuff
-	        console.log('got here');
-	        console.log(body);
-	        console.log(util.inspect(body, {showHidden: false, depth: null}))
-	        var lookup = {};
-	        for (var i = 0; i < outing.length; i++) {
-	        	console.log('id' + outing[i]._id);
-	        	lookup[outing[i]._id] = outing[i];
-	        }
-	        var finalResult = [];
+    var options = {
+       url: 'https://api.routific.com/v1/vrp',
+       json: data,
+       headers: {
+           'Authorization': 'bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1ODFhNzI1NzUwY2MxMjUxN2QxZTcwZjgiLCJpYXQiOjE0NzgxMjgyMTV9.ejaVxuKZSuk54YWfeJ7s-s7hQz91ZTIc0ntt_M6irPY'
+       }
+    };
+    function callback(error, response, body) {
+        if (!error && response.statusCode == 200) {
+            // TODO: Fix lookup stuff
+            console.log('got here');
+            console.log(body);
+            console.log(util.inspect(body, {showHidden: false, depth: null}))
+            var lookup = {};
+            for (var i = 0; i < outing.length; i++) {
+                console.log('id' + outing[i]._id);
+                lookup[outing[i]._id] = outing[i];
+            }
+            var finalResult = [];
 
-	        var solution = body.solution;
-	        var route = solution.vehicle_1;
+            var solution = body.solution;
+            var route = solution.vehicle_1;
 
-	       	//NOTE: Starting at 1 because initial location is start location
-	        for (var j = 1; j < route.length; j++) {
-	        	var nextId = route[j].location_id;
-	        	finalResult.push(lookup[nextId]);
-	        }
-	    	res.json({
-				'detailedSteps': finalResult
-			})
-	    }
-	    else {
-	    	console.log('got to else');
-	        // ... Handle error
-	        console.log(response.statusCode + ': ' + body.error);
-	    }
-	}
-	request.post(options, callback);
+            //NOTE: Starting at 1 because initial location is start location
+            for (var j = 1; j < route.length; j++) {
+                var nextId = route[j].location_id;
+                finalResult.push(lookup[nextId]);
+            }
+            res.json({
+                'detailedSteps': finalResult
+            })
+        }
+        else {
+            console.log('got to else');
+            // ... Handle error
+            console.log(response.statusCode + ': ' + body.error);
+        }
+    }
+    request.post(options, callback);
 }
 
 //function to optimize route using RouteXL API.
 export const optimizeRouteXL = (req, res, outing) => {
-	var locations = [];
+    var locations = [];
 
-	var theGreen = {
-		"address": "Green",
-		"lat": 43.705267,
+    var theGreen = {
+        "address": "Green",
+        "lat": 43.705267,
         "lng": -72.288719
-	}
-	locations.push(theGreen);
+    }
 
-	for (var i=0; i<outing.length; i++) {
-		var orderName = `order_${i}`;
-		var stepLocation = {
-			"address": outing[i].title,
-			"lat": `${outing[i].lat}`,
-			"lng": `${outing[i].lng}`
-		}
-		locations.push(stepLocation);
-	}
+    //Push start location as first calculated outing
+    locations.push(theGreen);
 
-	locations.push(theGreen);
-
-	var auth = "Basic " + new Buffer(process.env.ROUTEXL_USERNAME + ":" + process.env.ROUTEXL_PASSWORD).toString("base64");
-
-	var options = {
-	    url: 'https://api.routexl.nl/tour',
-	    form: { locations: locations },
-	    headers: {
-	        'Authorization': auth
-	    }
-	};
-
-	function callback(error, response, body) {
-	    if (!error && response.statusCode == 200) {
-	        //TODO: Fix lookup stuff
-	        //create map
-	        var lookup = {};
-	        for (var i = 0; i < outing.length; i++) {
-	        	lookup[outing[i].title] = outing[i];
-	        }
-	        var finalResult = [];
-	        var parsedResult = JSON.parse(body);
-	        var finalRoute = parsedResult.route;
-	        console.log('original outing' + outing);
-	        console.log('new outing');
-	        console.log(util.inspect(finalRoute, false, null))
-	        var length = 0;
-	        for (var step in finalRoute) {
-	        	if (finalRoute.hasOwnProperty(step)) {
-	        		length++;
-	        	}
- 	        }
-
- 	        //start at 1, end at length -1 to remove the Green from outing
- 	        for (var j=1; j< length -1 ; j++) {
- 	        	var nextStepName = finalRoute[j].name;
- 	        	// var step = outing.filter(function( obj) {
- 	        	// 	return obj.name == nextStepName;
- 	        	// });
-				console.log('next step name' + nextStepName);
-
- 	        	var result  = outing.filter(function(o){
- 	        		console.log('got here');
- 	        		return o.title == nextStepName;} );
- 	        	console.log('result' + result);
- 	        	if (result) {
- 	        		finalResult.push(result[0]);
- 	        	};
-
- 	        	//finalResult.push(lookup[nextStepName]);
- 	        }
+    for (var i=0; i<outing.length; i++) {
+        var orderName = `order_${i}`;
+        var stepLocation = {
+            "address": outing[i].title,
+            "lat": `${outing[i].lat}`,
+            "lng": `${outing[i].lng}`
+        }
+        locations.push(stepLocation);
+    }
 
 
-	        res.json({
-	        	'detailedSteps': finalResult
-	        });
-	    }
-	    else {
-	        // ... Handle error
-	        console.log(response.statusCode + ': ' + body.error);
-	    }
-	}
-	request.post(options, callback);
+    //Push end location as phone's current location
+    locations.push(theGreen);
+
+    var auth = "Basic " + new Buffer(process.env.ROUTEXL_USERNAME + ":" + process.env.ROUTEXL_PASSWORD).toString("base64");
+
+    var options = {
+        url: 'https://api.routexl.nl/tour',
+        form: { locations: locations },
+        headers: {
+            'Authorization': auth
+        }
+    };
+
+    function callback(error, response, body) {
+        if (!error && response.statusCode == 200) {
+            //TODO: Fix lookup stuff
+            //create map
+            var lookup = {};
+            for (var i = 0; i < outing.length; i++) {
+                lookup[outing[i].title] = outing[i];
+            }
+            var finalResult = [];
+            var parsedResult = JSON.parse(body);
+            var finalRoute = parsedResult.route;
+            console.log(util.inspect(finalRoute, false, null))
+            var length = 0;
+            for (var step in finalRoute) {
+                if (finalRoute.hasOwnProperty(step)) {
+                    length++;
+                }
+            }
+
+            //start at 1, end at length -1 to remove the Green from outing
+            for (var j=1; j< length -1 ; j++) {
+                var nextStepName = finalRoute[j].name;
+                // var step = outing.filter(function( obj) {
+                //  return obj.name == nextStepName;
+                // });
+                console.log('next step name' + nextStepName);
+
+                var result  = outing.filter(function(o){
+                    return o.title == nextStepName;} );
+                console.log('result' + result);
+                if (result) {
+                    finalResult.push(result[0]);
+                };
+
+                //finalResult.push(lookup[nextStepName]);
+            }
+
+            res.json({
+                'detailedSteps': finalResult
+            });
+        }
+        else {
+            // ... Handle error
+            console.log(response.statusCode + ': ' + body.error);
+        }
+    }
+    request.post(options, callback);
 }
 
 export const getRandomOutingStudy = (callback) => {
-	Outing
-		.count()
-		.exec((err, count) => {
-			let skip = Math.floor(Math.random() * count);
-			Outing.findOne().skip(skip).exec(callback);
-		});
+    Outing
+        .count()
+        .exec((err, count) => {
+            let skip = Math.floor(Math.random() * count);
+            Outing.findOne().skip(skip).exec(callback);
+        });
 }
