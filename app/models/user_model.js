@@ -15,25 +15,21 @@ UserSchema.set('toJSON', {
   virtuals: true,
 });
 
-//added this
 UserSchema.pre('save', function beforeUserSave(next) {
+    const user = this;
+    bcrypt.genSalt(10, (err, salt) => {
+        if (err) { return next(err); }
+        if (!user.isModified('password')) return next();
 
-	const user = this;
-	bcrypt.genSalt(10, (err, salt) => {
-	  if (err) { return next(err); }
-	  //this might be in wrong place?
-	  if (!user.isModified('password')) return next();
-
-	  // hash (encrypt) our password using the salt
-	  bcrypt.hash(user.password, salt, null, (err, hash) => {
-	    if (err) { return next(err); }
-
-	    // overwrite plain text password with encrypted password
-	    user.password = hash;
-	    return next();
-	  });
-	});
-})
+    // hash (encrypt) our password using the salt
+    bcrypt.hash(user.password, salt, null, (err, hash) => {
+      if (err) { return next(err); }
+      // overwrite plain text password with encrypted password
+      user.password = hash;
+      return next();
+    });
+    });
+});
 
 UserSchema.methods.comparePassword = function comparePassword(candidatePassword, callback) {
   bcrypt.compare(candidatePassword, this.password, (err, isMatch) => {
@@ -48,11 +44,11 @@ const User = mongoose.model('User', UserSchema);
 
 export default User;
 
-//structure for users; last contacted interval; something that runs periodically
-//for bots that run on Heroku--either keep awake @ all times or 
+// structure for users; last contacted interval; something that runs periodically
+// for bots that run on Heroku--either keep awake @ all times or
 
-//Heroku: if you have an incoming HTTP request to some path, it wakes up
-//Slack: polling client. your Heroku instance polls slack 
+// Heroku: if you have an incoming HTTP request to some path, it wakes up
+// Slack: polling client. your Heroku instance polls slack
 
-//default Heroku plan: schedule something to hit it every hour--Heroku scheduler plugin. 
-//have it listen to /checkup, when it hits URL crank through all entries and figure out whether any is over the time, then clear flags
+// default Heroku plan: schedule something to hit it every hour--Heroku scheduler plugin.
+// have it listen to /checkup, when it hits URL crank through all entries and figure out whether any is over the time, then clear flags

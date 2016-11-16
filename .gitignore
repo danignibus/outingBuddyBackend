@@ -3,3 +3,5 @@ config.js
 npm-debug.log
 dist
 .env
+outingStudy.csv
+outingStudy.txt
