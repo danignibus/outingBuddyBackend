@@ -33,6 +33,7 @@ const localLogin = new LocalStrategy(localOptions, (phoneNumber, password, done)
         // compare passwords - is `password` equal to user.password?
         user.comparePassword(password, (err, isMatch) => {
             if (err) {
+                console.log('error');
                 done(err);
             } else if (!isMatch) {
                 done(null, false);
