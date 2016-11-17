@@ -3,16 +3,16 @@ import bcrypt from 'bcrypt-nodejs';
 
 // create a schema for outings/description
 const UserSchema = new Schema({
-  name: String,
-  phoneNumber: String,
-  group: String,
-  journals: [],
-  lastPrompted: Date,
-  password: String,
+    name: String,
+    phoneNumber: String,
+    group: String,
+    journals: [],
+    lastPrompted: Date,
+    password: String,
 });
 
 UserSchema.set('toJSON', {
-  virtuals: true,
+    virtuals: true,
 });
 
 UserSchema.pre('save', function beforeUserSave(next) {
@@ -21,22 +21,22 @@ UserSchema.pre('save', function beforeUserSave(next) {
         if (err) { return next(err); }
         if (!user.isModified('password')) return next();
 
-    // hash (encrypt) our password using the salt
-    bcrypt.hash(user.password, salt, null, (err, hash) => {
-      if (err) { return next(err); }
-      // overwrite plain text password with encrypted password
-      user.password = hash;
-      return next();
-    });
+        // hash (encrypt) our password using the salt
+        bcrypt.hash(user.password, salt, null, (err, hash) => {
+            if (err) { return next(err); }
+            // overwrite plain text password with encrypted password
+            user.password = hash;
+            return next();
+        });
     });
 });
 
 UserSchema.methods.comparePassword = function comparePassword(candidatePassword, callback) {
-  bcrypt.compare(candidatePassword, this.password, (err, isMatch) => {
-    if (err) { return callback(err); }
+    bcrypt.compare(candidatePassword, this.password, (err, isMatch) => {
+        if (err) { return callback(err); }
 
-    callback(null, isMatch);
-  });
+        callback(null, isMatch);
+    });
 };
 
 // create model class
@@ -51,4 +51,5 @@ export default User;
 // Slack: polling client. your Heroku instance polls slack
 
 // default Heroku plan: schedule something to hit it every hour--Heroku scheduler plugin.
-// have it listen to /checkup, when it hits URL crank through all entries and figure out whether any is over the time, then clear flags
+// have it listen to /checkup, when it hits URL crank through all entries and figure out
+// whether any is over the time, then clear flags

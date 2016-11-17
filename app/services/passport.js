@@ -14,8 +14,8 @@ const localOptions = { usernameField: 'phoneNumber' };
 // we'll pass in the jwt in an `authorization` header
 // so passport can find it there
 const jwtOptions = {
-  jwtFromRequest: ExtractJwt.fromHeader('authorization'),
-  secretOrKey: process.env.API_SECRET,
+    jwtFromRequest: ExtractJwt.fromHeader('authorization'),
+    secretOrKey: process.env.API_SECRET,
 };
 
 
@@ -25,12 +25,10 @@ const localLogin = new LocalStrategy(localOptions, (phoneNumber, password, done)
     // if it is the correct email and password
     // otherwise, call done with false
 
-    //TODO: remove hacky addition of plus sign to phoneNumber
-    var formattedPhoneNumber = `+${phoneNumber}`;
-    User.findOne({'phoneNumber' : formattedPhoneNumber }, (err, user) => {
-        if (err) { console.log(err); return done(err); }
-        console.log('got past if err');
-        console.log(user);
+    // TODO: remove hacky addition of plus sign to phoneNumber
+    const formattedPhoneNumber = `+${phoneNumber}`;
+    User.findOne({ phoneNumber: formattedPhoneNumber }, (err, user) => {
+        if (err) { return done(err); }
         if (!user) { return done(null, false); }
         // compare passwords - is `password` equal to user.password?
         user.comparePassword(password, (err, isMatch) => {
@@ -46,11 +44,6 @@ const localLogin = new LocalStrategy(localOptions, (phoneNumber, password, done)
 });
 
 const jwtLogin = new JwtStrategy(jwtOptions, (payload, done) => {
-  //is called with confirmed jwt we just need to confirm that user exits
-
-    // See if the user ID in the payload exists in our database
-    // If it does, call 'done' with that other
-    // otherwise, call done without a user object
     User.findById(payload.sub, (err, user) => {
         if (err) {
             done(err, false);

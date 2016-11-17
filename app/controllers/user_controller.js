@@ -9,11 +9,11 @@ function tokenForUser(user) {
 }
 
 export const getUser = (callback, phoneNumber) => {
-    User.findOne({ 'phoneNumber': phoneNumber }).exec(callback);
+    User.findOne({ phoneNumber }).exec(callback);
 };
 
 export const getJournalUsers = (callback) => {
-    User.find({ 'group': '2' }).exec(callback);
+    User.find({ group: '2' }).exec(callback);
 };
 
 export const getUsers = (callback) => {
@@ -24,8 +24,8 @@ export const updateLastPrompted = (phoneNumber) => {
     // get user with that phone number, update lastPrompted to current time
     const now = new Date();
     User.findOneAndUpdate(
-        { 'phoneNumber': phoneNumber },
-        { 'lastPrompted': now },
+        { phoneNumber },
+        { lastPrompted: now },
         function(err, user) {
             if (err) {
                 console.log('got an error in updateLastPrompted');
@@ -36,8 +36,8 @@ export const updateLastPrompted = (phoneNumber) => {
 export const saveJournalEntry = (phoneNumber, journal) => {
     //get user with that phone number, push journal onto journals array
     User.findOneAndUpdate(
-        {'phoneNumber': phoneNumber},
-        {$push: {'journals': journal}},
+        { phoneNumber },
+        { $push: {journals: journal } },
         function(err, user) {
             if (err) {
                 console.log('got an error in saveJournalEntry');
@@ -61,7 +61,7 @@ export const signup = (req, res, next) => {
     // mongo query to find if a user already exists with this email.
     // TODO: remove addition of plus sign for phone number
     const formattedPhoneNumber = `+${phoneNumber}`;
-    User.findOne({'phoneNumber': formattedPhoneNumber}).exec((err, obj) => {
+    User.findOne({ phoneNumber: formattedPhoneNumber }).exec((err, obj) => {
         if (obj == null) {
             const user = new User();
             user.phoneNumber = formattedPhoneNumber;
@@ -78,9 +78,4 @@ export const signup = (req, res, next) => {
             return res.status(409).send('User already exists');
         }
     });
-
-    // if user exists then return an error. If not, use the User model to create a new user.
-    // Save the new User object
-    // this is similar to how you created a Post
-    // and then return a token same as you did in in signin
 };

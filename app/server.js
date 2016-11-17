@@ -1,9 +1,8 @@
 import apiRouter from './router';
 import express from 'express';
 import mongoose from 'mongoose';
-const util = require('util')
 
-var http = require("http");
+const http = require('http');
 
 // DB Setup
 const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost/outingsbot';
@@ -13,18 +12,18 @@ mongoose.Promise = global.Promise;
 
 const app = express();
 
-const server = http.createServer(app);
-const TwilioSMSBot = require('botkit-sms')
+// const server = http.createServer(app);
+const TwilioSMSBot = require('botkit-sms');
 const controller = TwilioSMSBot({
-  account_sid: 'AC92e5ed98b84911ee8d571b78b5650c38',
-  auth_token: 'c15e339ffe42774e2257fa9b4f5b3924',
-  twilio_number: '+14082146413'
-})
+    account_sid: 'AC92e5ed98b84911ee8d571b78b5650c38',
+    auth_token: 'c15e339ffe42774e2257fa9b4f5b3924',
+    twilio_number: '+14082146413',
+});
 
-var Users = require('./controllers/user_controller')
-var Outings = require('./controllers/outing_controller')
+const Users = require('./controllers/user_controller');
+const Outings = require('./controllers/outing_controller');
 
-let bot = controller.spawn({})
+const bot = controller.spawn({});
 
 const port = process.env.PORT || 9090;
 // server.listen(port);
@@ -36,80 +35,75 @@ controller.setupWebserver(port, function (err, webserver) {
     controller.createWebhookEndpoints(webserver, bot, function () {
         webserver.use('/api', apiRouter);
         webserver.get('/remind', (req, res) => {
-            //for each user, if their last prompted is undefined or more than 1 hour ago, send a reminder
+            // for each user, if their last prompted is undefined
+            // or more than 1 hour ago, send a reminder
             Users.getUsers((err, users) => {
-                for (var i = 0; i < users.length; i++) {
-                    var lastPrompted = users[i].lastPrompted
-                    var timeBetweenPrompts = 259200000;
-                    var timeElapsed;
-                    if (lastPrompted != undefined) {
+                for (let i = 0; i < users.length; i++) {
+                    const lastPrompted = users[i].lastPrompted;
+                    const timeBetweenPrompts = 259200000;
+                    let timeElapsed;
+                    if (lastPrompted !== undefined) {
                         timeElapsed = new Date().getTime() - lastPrompted.getTime();
                     }
-                    if (lastPrompted == undefined || timeElapsed > timeBetweenPrompts) {
-                        console.log(`user name ${users[i].name}`)
-                        console.log(`last prompted ${lastPrompted}`)
-                        Users.updateLastPrompted(users[i].phoneNumber)
+                    if (lastPrompted === undefined || timeElapsed > timeBetweenPrompts) {
+                        Users.updateLastPrompted(users[i].phoneNumber);
 
-                        var phoneNumber = users[i].phoneNumber
-                        console.log(phoneNumber)
-                        var message = {
+                        const phoneNumber = users[i].phoneNumber;
+                        const message = {
                             from: '+14082146413',
                             to: phoneNumber,
                             user: phoneNumber,
-                            channel: phoneNumber
-                        }
+                            channel: phoneNumber,
+                        };
                         bot.startConversation(message, (err, convo) => {
                             if (err) {
                                 console.log(err);
                             }
                             convo.say('Thanks for participating in our thesis! Please text in "Record" to initiate recording a great experience from the past three days')
                             convo.next();
-                        })
+                        });
                     }
                 }
-            })
-            console.log('Pinged reminder page');
+            });
             res.send('Reminder page');
         });
 
-        console.log('TwilioSMSBot is online!')
-    })
-})
+        console.log('TwilioSMSBot is online!');
+    });
+});
 
 controller.hears(['Outing'], 'message_received', (bot, message) => {
     bot.startConversation(message, (err, convo) => {
         Outings.getRandomOutingStudy((err, outing) => {
-            convo.say(`${outing.description}`)
-        })
+            convo.say(`${outing.description}`);
+        });
     });
 });
 
 controller.hears(['Record'], 'message_received', (bot, message) => {
-  console.log('da message user: ' + message.user)
-  bot.startConversation(message, (err, convo) => {
-    convo.ask('Type in a short entry about your best experience from the past three days! Please only send one text.', (res, convo) => {
-        Users.saveJournalEntry(message.user, res.text)
-        convo.say('Thanks! Your entry was recorded.')
-        convo.next()
-    })
-  })
-})
+    bot.startConversation(message, (err, convo) => {
+        convo.ask('Type in a short entry about your best experience from the past three days! Please only send one text.', (res, convo) => {
+            Users.saveJournalEntry(message.user, res.text);
+            convo.say('Thanks! Your entry was recorded.');
+            convo.next();
+        });
+    });
+});
 
 controller.hears(['COMMANDS'], 'message_received', (bot, message) => {
-  bot.startConversation(message, (err, convo) => {
-    var phoneNumber = message.user
-    var user = Users.getUser((err, user, phoneNumber) => {
-        if (user.group == 1) {
-            convo.say('Type "Outing" to generate a random outing. Type "Record" to record a memorable activity you\'ve participated in recently!')
-        }
-        else {
-            convo.say('We\'ll be prompting you for an entry soon. Stay tuned!')
-        }
-    }, phoneNumber)
-  })
-})
+    bot.startConversation(message, (err, convo) => {
+        const phoneNumber = message.user;
+        const user = Users.getUser((err, user, phoneNumber) => {
+            if (user.group === 1) {
+                convo.say('Type "Outing" to generate a random outing. Type "Record" to record a memorable activity you\'ve participated in recently!');
+            } else {
+                convo.say('We\'ll be prompting you for an entry soon. Stay tuned!');
+            }
+        }, phoneNumber);
+    });
+});
 
 controller.hears('.*', 'message_received', (bot, message) => {
-  bot.reply(message, 'Huh? Type "COMMANDS" for available commands.')
-})
+    bot.reply(message, 'Huh? Type "COMMANDS" for available commands.');
+});
 

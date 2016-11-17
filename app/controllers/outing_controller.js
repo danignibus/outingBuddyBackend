@@ -37,7 +37,6 @@ export const getRandomOuting = (req, res) => {
         });
 };
 
-
 // function to optimize route using Routific API.
 export const optimizeRouteRoutific = (req, res, outing) => {
     const data = {};
@@ -45,8 +44,7 @@ export const optimizeRouteRoutific = (req, res, outing) => {
 
     data.visits = visits;
 
-    for (var i=0; i<outing.length; i++) {
-        // const orderName = `order_${i}`;
+    for (let i = 0; i < outing.length; i++) {
         const stepLocation = {
             location: {
                 name: outing[i].title,
@@ -63,10 +61,10 @@ export const optimizeRouteRoutific = (req, res, outing) => {
                 id: 'initialLocation',
                 name: 'Baker Berry',
                 lat: 43.705267,
-                lng: -72.288719
+                lng: -72.288719,
             },
-        }
-    }
+        },
+    };
 
     const options = {
         url: 'https://api.routific.com/v1/vrp',
@@ -78,8 +76,8 @@ export const optimizeRouteRoutific = (req, res, outing) => {
     function callback(error, response, body) {
         if (!error && response.statusCode == 200) {
             const lookup = {};
-            for (var i = 0; i < outing.length; i++) {
-                lookup[outing[i]._id] = outing[i];
+            for (let j = 0; j < outing.length; j++) {
+                lookup[outing[j]._id] = outing[j];
             }
             const finalResult = [];
 
@@ -87,8 +85,8 @@ export const optimizeRouteRoutific = (req, res, outing) => {
             const route = solution.vehicle_1;
 
             // NOTE: Starting at 1 because initial location is start location
-            for (var j = 1; j < route.length; j++) {
-                const nextId = route[j].location_id;
+            for (let k = 1; k < route.length; k++) {
+                const nextId = route[k].location_id;
                 finalResult.push(lookup[nextId]);
             }
             res.json({
@@ -105,100 +103,72 @@ export const optimizeRouteRoutific = (req, res, outing) => {
 
 // function to optimize route using RouteXL API.
 export const optimizeRouteXL = (req, res, outing) => {
-    var locations = [];
+    const locations = [];
 
-    var theGreen = {
-        "address": "Green",
-        "lat": 43.705267,
-        "lng": -72.288719
-    }
+    const theGreen = {
+        address: 'Green',
+        lat: 43.705267,
+        lng: -72.288719,
+    };
 
-    //Push start location as first calculated outing
+    // Push start location as first calculated outing
     locations.push(theGreen);
 
-    for (var i=0; i<outing.length; i++) {
-        var orderName = `order_${i}`;
-        var stepLocation = {
-            "address": outing[i].title,
-            "lat": `${outing[i].lat}`,
-            "lng": `${outing[i].lng}`
-        }
+    for (let i = 0; i < outing.length; i++) {
+        const stepLocation = {
+            address: outing[i].title,
+            lat: `${outing[i].lat}`,
+            lng: `${outing[i].lng}`,
+        };
         locations.push(stepLocation);
     }
 
 
-    //Push end location as phone's current location
+    // Push end location as phone's current location
     locations.push(theGreen);
 
-    var auth = "Basic " + new Buffer(process.env.ROUTEXL_USERNAME + ":" + process.env.ROUTEXL_PASSWORD).toString("base64");
+    const auth = 'Basic ' + new Buffer(process.env.ROUTEXL_USERNAME + ':' + process.env.ROUTEXL_PASSWORD).toString('base64');
 
-    var options = {
+    const options = {
         url: 'https://api.routexl.nl/tour',
-        form: { locations: locations },
+        form: { locations },
         headers: {
-            'Authorization': auth
-        }
+            Authorization: auth,
+        },
     };
 
     function callback(error, response, body) {
         if (!error && response.statusCode == 200) {
             //create map
-            var lookup = {};
-            for (var i = 0; i < outing.length; i++) {
-                lookup[outing[i].title] = outing[i];
+            const lookup = {};
+            for (let j = 0; j < outing.length; j++) {
+                lookup[outing[j].title] = outing[j];
             }
-            var finalResult = [];
-            var parsedResult = JSON.parse(body);
-            var finalRoute = parsedResult.route;
-            var length = 0;
-            for (var step in finalRoute) {
+            const finalResult = [];
+            const parsedResult = JSON.parse(body);
+            const finalRoute = parsedResult.route;
+            let length = 0;
+            for (const step in finalRoute) {
                 if (finalRoute.hasOwnProperty(step)) {
                     length++;
                 }
             }
 
-            //start at 1, end at length -1 to remove the Green from outing
-            for (var j=1; j< length -1 ; j++) {
-                var nextStepName = finalRoute[j].name;
+            // start at 1, end at length -1 to remove the Green from outing
+            for (let k = 1; k < length - 1; k++) {
+                const nextStepName = finalRoute[k].name;
                 finalResult.push(lookup[nextStepName]);
-            } 
+            }
 
             res.json({
-                'detailedSteps': finalResult
+                detailedSteps: finalResult,
             });
-        }
-        else {
+        } else {
             // ... Handle error
             console.log(response.statusCode + ': ' + body.error);
         }
     }
     request.post(options, callback);
-};
-
-export const initiateOuting = (req, res) => {
-    const duration = req.query.duration;
-
-    // TODO: will need to change this when an activity doesn't have unlimited participants
-    const halfDuration = Math.ceil(duration / 2);
-    const outing = [];
-    const stepIds = [];
-
-    // find significant outing (i.e. at least half time of outing)
-    Outing
-        .find({ 'duration': halfDuration }).
-        count().
-        exec((err, count) => {
-            let skip = Math.floor(Math.random() * count);
-            Outing.findOne({ 'duration': halfDuration }).
-            skip(skip)
-            .exec(function(err, obj) {
-                // getSecondStep(req, res, obj);
-                outing.push(obj);
-                stepIds.push(obj._id);
-                var remainingDuration = req.query.duration - obj.duration;
-                completeOuting(req, res, outing, remainingDuration, stepIds);
-            });
-        });
 };
 
 export const completeOuting = (req, res, outing, remainingDuration, stepIds) => {
@@ -211,26 +181,25 @@ export const completeOuting = (req, res, outing, remainingDuration, stepIds) => 
         miles = 3;
     }
 
-    const radiusInRadians = miles/3959;
-    if (remainingDuration == 0) {
+    const radiusInRadians = miles / 3959;
+    if (remainingDuration === 0) {
         optimizeRouteXL(req, res, outing);
-    }
-    else if (remainingDuration > 0) {
-        var jsonObject = outing[0].toJSON();
+    } else if (remainingDuration > 0) {
+        const jsonObject = outing[0].toJSON();
 
-        //query for steps within a given radius and that have not already been added to the outing
-        var query = {
-            "loc" : {
-                $geoWithin : {
-                    $centerSphere : [jsonObject.loc.coordinates, radiusInRadians ]
-                }
+        // query for steps within a given radius and that have not already been added to the outing
+        const query = {
+            loc: {
+                $geoWithin: {
+                    $centerSphere: [jsonObject.loc.coordinates, radiusInRadians],
+                },
             },
-            "_id": {
-                $nin: stepIds
-            }
+            _id: {
+                $nin: stepIds,
+            },
         };
 
-        //TODO: find a different way to randomize where I don't have to pull twice
+        // TODO: find a different way to randomize where I don't have to pull twice
         Outing
             .find(query).where('duration').lte(remainingDuration).
             count().
@@ -241,19 +210,44 @@ export const completeOuting = (req, res, outing, remainingDuration, stepIds) => 
                 .exec(function(err, obj) {
                     outing.push(obj);
                     stepIds.push(obj._id);
-                    remainingDuration = remainingDuration - obj.duration;
-                    completeOuting(req, res, outing, remainingDuration, stepIds);
+                    const newRemainingDuration = remainingDuration - obj.duration;
+                    completeOuting(req, res, outing, newRemainingDuration, stepIds);
                 });
-            })
+            });
     }
-}
+};
 
+export const initiateOuting = (req, res) => {
+    const duration = req.query.duration;
+
+    // TODO: will need to change this when an activity doesn't have unlimited participants
+    const halfDuration = Math.ceil(duration / 2);
+    const outing = [];
+    const stepIds = [];
+
+    // find significant outing (i.e. at least half time of outing)
+    Outing
+        .find({ duration: halfDuration }).
+        count().
+        exec((err, count) => {
+            const skip = Math.floor(Math.random() * count);
+            Outing.findOne({ duration: halfDuration }).
+            skip(skip)
+            .exec(function(err, obj) {
+                // getSecondStep(req, res, obj);
+                outing.push(obj);
+                stepIds.push(obj._id);
+                const newRemainingDuration = req.query.duration - obj.duration;
+                completeOuting(req, res, outing, newRemainingDuration, stepIds);
+            });
+        });
+};
 
 export const getRandomOutingStudy = (callback) => {
     Outing
         .count()
         .exec((err, count) => {
-            let skip = Math.floor(Math.random() * count);
+            const skip = Math.floor(Math.random() * count);
             Outing.findOne().skip(skip).exec(callback);
         });
-}
+};
