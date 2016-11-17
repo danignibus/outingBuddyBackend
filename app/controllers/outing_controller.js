@@ -12,15 +12,15 @@ export const createOuting = (req, res) => {
 
     outing.save()
         .then(result => {
-            console.log('outing created!');
+            res.send(result);
         })
     .catch(error => {
-        console.log('error');
+        res.send(error);
     });
 };
 
 export const getOutings = (req, res) => {
-    Outing.find({}, function(err,obj) { console.log(obj); });
+    Outing.find({}, (err, obj) => { res.send(obj); });
 };
 
 export const getRandomOuting = (req, res) => {
@@ -28,7 +28,7 @@ export const getRandomOuting = (req, res) => {
         .count()
         .exec((err, count) => {
             const skip = Math.floor(Math.random() * count);
-            Outing.findOne().skip(skip).exec(function(err, obj) {
+            Outing.findOne().skip(skip).exec((err, obj) => {
                 if (err) {
                     return res.send();
                 }
@@ -92,10 +92,9 @@ export const optimizeRouteRoutific = (req, res, outing) => {
             res.json({
                 detailedSteps: finalResult,
             });
-        }
-        else {
+        } else {
             // ... Handle error
-            console.log(response.statusCode + ': ' + body.error);
+            res.send(error);
         }
     }
     request.post(options, callback);
@@ -138,8 +137,8 @@ export const optimizeRouteXL = (req, res, outing) => {
     };
 
     function callback(error, response, body) {
-        if (!error && response.statusCode == 200) {
-            //create map
+        if (!error && response.statusCode === 200) {
+            // create map
             const lookup = {};
             for (let j = 0; j < outing.length; j++) {
                 lookup[outing[j].title] = outing[j];
@@ -164,8 +163,7 @@ export const optimizeRouteXL = (req, res, outing) => {
                 detailedSteps: finalResult,
             });
         } else {
-            // ... Handle error
-            console.log(response.statusCode + ': ' + body.error);
+            res.send(error);
         }
     }
     request.post(options, callback);
@@ -207,7 +205,7 @@ export const completeOuting = (req, res, outing, remainingDuration, stepIds) => 
                 const skip = Math.floor(Math.random() * count);
                 Outing.findOne(query).where('duration').lte(remainingDuration).
                 skip(skip)
-                .exec(function(err, obj) {
+                .exec((err, obj) => {
                     outing.push(obj);
                     stepIds.push(obj._id);
                     const newRemainingDuration = remainingDuration - obj.duration;
@@ -233,7 +231,7 @@ export const initiateOuting = (req, res) => {
             const skip = Math.floor(Math.random() * count);
             Outing.findOne({ duration: halfDuration }).
             skip(skip)
-            .exec(function(err, obj) {
+            .exec((err, obj) => {
                 // getSecondStep(req, res, obj);
                 outing.push(obj);
                 stepIds.push(obj._id);

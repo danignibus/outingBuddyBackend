@@ -26,7 +26,7 @@ export const updateLastPrompted = (phoneNumber) => {
     User.findOneAndUpdate(
         { phoneNumber },
         { lastPrompted: now },
-        function(err, user) {
+        (err, user) => {
             if (err) {
                 console.log('got an error in updateLastPrompted');
             }
@@ -37,8 +37,8 @@ export const saveJournalEntry = (phoneNumber, journal) => {
     //get user with that phone number, push journal onto journals array
     User.findOneAndUpdate(
         { phoneNumber },
-        { $push: {journals: journal } },
-        function(err, user) {
+        { $push: { journals: journal } },
+        (err, user) => {
             if (err) {
                 console.log('got an error in saveJournalEntry');
             }
@@ -72,7 +72,7 @@ export const signup = (req, res, next) => {
                     res.send({ token: tokenForUser(user) });
                 })
             .catch(error => {
-                console.log(error);
+                res.send(error);
             });
         } else {
             return res.status(409).send('User already exists');
