@@ -270,7 +270,7 @@ export const initiateOuting = (req, res) => {
 
     // find significant outing (i.e. at least half time of outing)
     Outing
-        .find({ duration: halfDuration }).
+        .find({ duration: halfDuration, warmup: 0 }).
         count().
         exec((err, count) => {
             const skip = Math.floor(Math.random() * count);
@@ -280,8 +280,13 @@ export const initiateOuting = (req, res) => {
                 outing.push(obj);
                 stepIds.push(obj._id);
                 const newRemainingDuration = req.query.duration - obj.duration;
-                getWarmup(req, res, outing, newRemainingDuration, stepIds);
-                //completeOuting(req, res, outing, newRemainingDuration, stepIds);
+                if (newRemainingDuration === 0) {
+                    res.json({
+                        detailedSteps: outing,
+                    });
+                } else {
+                    getWarmup(req, res, outing, newRemainingDuration, stepIds);
+                }
             });
         });
 };
