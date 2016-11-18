@@ -101,7 +101,7 @@ export const optimizeRouteRoutific = (req, res, outing) => {
 };
 
 // function to optimize route using RouteXL API.
-export const optimizeRouteXL = (req, res, outing) => {
+export const optimizeRouteXL = (req, res, warmup, outing) => {
     const locations = [];
 
     const theGreen = {
@@ -110,9 +110,7 @@ export const optimizeRouteXL = (req, res, outing) => {
         lng: -72.288719,
     };
 
-    // Push start location as first calculated outing
-    locations.push(theGreen);
-
+    //optimized route starts with large outing
     for (let i = 0; i < outing.length; i++) {
         const stepLocation = {
             address: outing[i].title,
@@ -122,8 +120,7 @@ export const optimizeRouteXL = (req, res, outing) => {
         locations.push(stepLocation);
     }
 
-
-    // Push end location as phone's current location
+    // TODO: Push end location as phone's current location (for now, pushing Dartmouth Green)
     locations.push(theGreen);
 
     const auth = 'Basic ' + new Buffer(process.env.ROUTEXL_USERNAME + ':' + process.env.ROUTEXL_PASSWORD).toString('base64');
@@ -152,9 +149,9 @@ export const optimizeRouteXL = (req, res, outing) => {
                     length++;
                 }
             }
-
+            finalResult.push(warmup);
             // start at 1, end at length -1 to remove the Green from outing
-            for (let k = 1; k < length - 1; k++) {
+            for (let k = 0; k < length - 1; k++) {
                 const nextStepName = finalRoute[k].name;
                 finalResult.push(lookup[nextStepName]);
             }
@@ -169,7 +166,7 @@ export const optimizeRouteXL = (req, res, outing) => {
     request.post(options, callback);
 };
 
-export const completeOuting = (req, res, outing, remainingDuration, stepIds) => {
+export const completeOuting = (req, res, warmup, outing, remainingDuration, stepIds) => {
     // get desired radius from client
     // NOTE: must have enough populated outings for small radii to work!
     let miles;
@@ -181,7 +178,7 @@ export const completeOuting = (req, res, outing, remainingDuration, stepIds) => 
 
     const radiusInRadians = miles / 3959;
     if (remainingDuration === 0) {
-        optimizeRouteXL(req, res, outing);
+        optimizeRouteXL(req, res, warmup, outing);
     } else if (remainingDuration > 0) {
         const jsonObject = outing[0].toJSON();
 
@@ -195,6 +192,7 @@ export const completeOuting = (req, res, outing, remainingDuration, stepIds) => 
             _id: {
                 $nin: stepIds,
             },
+            warmup: 0,
         };
 
         // TODO: find a different way to randomize where I don't have to pull twice
@@ -209,10 +207,57 @@ export const completeOuting = (req, res, outing, remainingDuration, stepIds) => 
                     outing.push(obj);
                     stepIds.push(obj._id);
                     const newRemainingDuration = remainingDuration - obj.duration;
-                    completeOuting(req, res, outing, newRemainingDuration, stepIds);
+                    completeOuting(req, res, warmup, outing, newRemainingDuration, stepIds);
                 });
             });
     }
+};
+
+export const getWarmup = (req, res, outing, remainingDuration, stepIds) => {
+    // get close by activity for warmup
+    // TODO: change this to .5 once we populate warmups!
+    const miles = 5;
+    const radiusInRadians = miles / 3959;
+    const jsonObject = outing[0].toJSON();
+
+    const query = {
+        loc: {
+            $geoWithin: {
+                $centerSphere: [jsonObject.loc.coordinates, radiusInRadians],
+            },
+        },
+        _id: {
+            $nin: stepIds,
+        },
+        warmup: 1,
+    };
+
+    Outing
+        .find(query).
+        count().
+        exec((err, count) => {
+            const skip = Math.floor(Math.random() * count);
+            Outing.findOne(query).
+            skip(skip)
+            .exec((err, obj) => {
+                // obj is the warmup activity; all warmups are 1 hour duration
+                stepIds.push(obj._id);
+                const newRemainingDuration = remainingDuration - obj.duration;
+
+                if (newRemainingDuration === 0) {
+                    // add the warmup to the activity
+                    const finalResult = [];
+                    finalResult.push(obj);
+                    finalResult.push(outing[0]);
+                    // return
+                    res.json({
+                        detailedSteps: finalResult,
+                    });
+                } else {
+                    completeOuting(req, res, obj, outing, newRemainingDuration, stepIds);
+                }
+            });
+        });
 };
 
 export const initiateOuting = (req, res) => {
@@ -232,11 +277,11 @@ export const initiateOuting = (req, res) => {
             Outing.findOne({ duration: halfDuration }).
             skip(skip)
             .exec((err, obj) => {
-                // getSecondStep(req, res, obj);
                 outing.push(obj);
                 stepIds.push(obj._id);
                 const newRemainingDuration = req.query.duration - obj.duration;
-                completeOuting(req, res, outing, newRemainingDuration, stepIds);
+                getWarmup(req, res, outing, newRemainingDuration, stepIds);
+                //completeOuting(req, res, outing, newRemainingDuration, stepIds);
             });
         });
 };
