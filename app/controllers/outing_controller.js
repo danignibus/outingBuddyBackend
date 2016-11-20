@@ -1,16 +1,16 @@
 // import consts from '../consts.js';
 // import Routific  from 'routific';
 import request from 'request';
-import Outing from '../models/outing_model';
+import Step from '../models/step_model';
 import dotenv from 'dotenv';
 dotenv.config({ silent: true });
 
-export const createOuting = (req, res) => {
-    const outing = new Outing();
-    outing.title = 'hello!';
-    outing.description = 'description';
+export const createStep = (req, res) => {
+    const step = new Step();
+    step.title = 'hello!';
+    step.description = 'description';
 
-    outing.save()
+    step.save()
         .then(result => {
             res.send(result);
         })
@@ -19,16 +19,16 @@ export const createOuting = (req, res) => {
     });
 };
 
-export const getOutings = (req, res) => {
-    Outing.find({}, (err, obj) => { res.send(obj); });
+export const getSteps = (req, res) => {
+    Step.find({}, (err, obj) => { res.send(obj); });
 };
 
-export const getRandomOuting = (req, res) => {
-    Outing
+export const getRandomStep = (req, res) => {
+    Step
         .count()
         .exec((err, count) => {
             const skip = Math.floor(Math.random() * count);
-            Outing.findOne().skip(skip).exec((err, obj) => {
+            Step.findOne().skip(skip).exec((err, obj) => {
                 if (err) {
                     return res.send();
                 }
@@ -70,7 +70,7 @@ export const optimizeRouteRoutific = (req, res, outing) => {
         url: 'https://api.routific.com/v1/vrp',
         json: data,
         headers: {
-            Authorization: 'bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1ODFhNzI1NzUwY2MxMjUxN2QxZTcwZjgiLCJpYXQiOjE0NzgxMjgyMTV9.ejaVxuKZSuk54YWfeJ7s-s7hQz91ZTIc0ntt_M6irPY'
+            Authorization: 'bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1ODFhNzI1NzUwY2MxMjUxN2QxZTcwZjgiLCJpYXQiOjE0NzgxMjgyMTV9.ejaVxuKZSuk54YWfeJ7s-s7hQz91ZTIc0ntt_M6irPY',
         },
     };
     function callback(error, response, body) {
@@ -195,20 +195,15 @@ export const completeOuting = (req, res, warmup, outing, remainingDuration, step
             warmup: 0,
         };
 
-        // TODO: find a different way to randomize where I don't have to pull twice
-        Outing
+        Step
             .find(query).where('duration').lte(remainingDuration).
-            count().
-            exec((err, count) => {
-                const skip = Math.floor(Math.random() * count);
-                Outing.findOne(query).where('duration').lte(remainingDuration).
-                skip(skip)
-                .exec((err, obj) => {
-                    outing.push(obj);
-                    stepIds.push(obj._id);
-                    const newRemainingDuration = remainingDuration - obj.duration;
-                    completeOuting(req, res, warmup, outing, newRemainingDuration, stepIds);
-                });
+            exec((err, steps) => {
+                const arrayLength = steps.length;
+                const step = steps[Math.floor(Math.random() * arrayLength)];
+                outing.push(step);
+                stepIds.push(step._id);
+                const newRemainingDuration = remainingDuration - step.duration;
+                completeOuting(req, res, warmup, outing, newRemainingDuration, stepIds);
             });
     }
 };
@@ -232,31 +227,29 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds) => {
         warmup: 1,
     };
 
-    Outing
+    // get all results, then index randomly into array
+    Step
         .find(query).
-        count().
-        exec((err, count) => {
-            const skip = Math.floor(Math.random() * count);
-            Outing.findOne(query).
-            skip(skip)
-            .exec((err, obj) => {
-                // obj is the warmup activity; all warmups are 1 hour duration
-                stepIds.push(obj._id);
-                const newRemainingDuration = remainingDuration - obj.duration;
+        exec((err, steps) => {
+            const arrayLength = steps.length;
+            const warmup = steps[Math.floor(Math.random() * arrayLength)];
 
-                if (newRemainingDuration === 0) {
-                    // add the warmup to the activity
-                    const finalResult = [];
-                    finalResult.push(obj);
-                    finalResult.push(outing[0]);
-                    // return
-                    res.json({
-                        detailedSteps: finalResult,
-                    });
-                } else {
-                    completeOuting(req, res, obj, outing, newRemainingDuration, stepIds);
-                }
-            });
+            // obj is the warmup activity; all warmups are 1 hour duration
+            stepIds.push(warmup._id);
+            const newRemainingDuration = remainingDuration - warmup.duration;
+
+            if (newRemainingDuration === 0) {
+                // add the warmup to the activity
+                const finalResult = [];
+                finalResult.push(warmup);
+                finalResult.push(outing[0]);
+                // return
+                res.json({
+                    detailedSteps: finalResult,
+                });
+            } else {
+                completeOuting(req, res, warmup, outing, newRemainingDuration, stepIds);
+            }
         });
 };
 
@@ -269,33 +262,30 @@ export const initiateOuting = (req, res) => {
     const stepIds = [];
 
     // find significant outing (i.e. at least half time of outing)
-    Outing
+    Step
         .find({ duration: halfDuration, warmup: 0 }).
-        count().
-        exec((err, count) => {
-            const skip = Math.floor(Math.random() * count);
-            Outing.findOne({ duration: halfDuration }).
-            skip(skip)
-            .exec((err, obj) => {
-                outing.push(obj);
-                stepIds.push(obj._id);
-                const newRemainingDuration = req.query.duration - obj.duration;
-                if (newRemainingDuration === 0) {
-                    res.json({
-                        detailedSteps: outing,
-                    });
-                } else {
-                    getWarmup(req, res, outing, newRemainingDuration, stepIds);
-                }
-            });
+        exec((err, steps) => {
+            // Randomly pull outing from array
+            const arrayLength = steps.length;
+            const step = steps[Math.floor(Math.random() * arrayLength)];
+            outing.push(step);
+            stepIds.push(step._id);
+            const newRemainingDuration = req.query.duration - step.duration;
+            if (newRemainingDuration === 0) {
+                res.json({
+                    detailedSteps: outing,
+                });
+            } else {
+                getWarmup(req, res, outing, newRemainingDuration, stepIds);
+            }
         });
 };
 
 export const getRandomOutingStudy = (callback) => {
-    Outing
+    Step
         .count()
         .exec((err, count) => {
             const skip = Math.floor(Math.random() * count);
-            Outing.findOne().skip(skip).exec(callback);
+            Step.findOne().skip(skip).exec(callback);
         });
 };

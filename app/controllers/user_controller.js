@@ -47,7 +47,6 @@ export const saveJournalEntry = (phoneNumber, journal) => {
 
 // Return a new token
 export const signin = (req, res, next) => {
-    
     res.send({ token: tokenForUser(req.user) });
 };
 
