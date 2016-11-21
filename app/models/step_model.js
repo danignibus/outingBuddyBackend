@@ -2,13 +2,16 @@ import mongoose, { Schema } from 'mongoose';
 
 // create a schema for outings/description
 const StepSchema = new Schema({
-    title: String,
+    author: String,
     description: String,
     duration: Number,
+    loc: {
+        type: { type: String },
+        coordinates: [Number],
+    },
+    title: String,
     participants: String,
-    lat: Number,
-    lng: Number,
-    author: String,
+    warmup: Number,
 });
 
 // create model class

@@ -1,18 +1,20 @@
 import Step from '../models/step_model';
 import dotenv from 'dotenv';
 dotenv.config({ silent: true });
-const util = require('util')
 
 export const createStep = (req, res) => {
     const step = new Step();
-    console.log(req.query.title);
-    console.log('query' + req.query);
-	console.log(util.inspect(req.query, {showHidden: false, depth: null}))
 
-    step.title = req.query.title;
+    step.author = req.user;
     step.description = req.query.description;
-    console.log('user' + req.user);
-    console.log('step' + step);
+    step.duration = req.query.duration;
+    step.loc.coordinates = [req.query.lng, req.query.lat];
+    step.loc.type = 'Point';
+    step.participants = req.query.participants || 'UNLIMITED';
+    step.title = req.query.title;
+    step.warmup = req.query.warmup || 0;
+
+    // TODO: get req.user
     step.save()
         .then(result => {
             res.send(result);

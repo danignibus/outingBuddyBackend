@@ -38,67 +38,67 @@ export const getRandomStep = (req, res) => {
 };
 
 // function to optimize route using Routific API.
-export const optimizeRouteRoutific = (req, res, outing) => {
-    const data = {};
-    const visits = {};
+// export const optimizeRouteRoutific = (req, res, outing) => {
+//     const data = {};
+//     const visits = {};
 
-    data.visits = visits;
+//     data.visits = visits;
 
-    for (let i = 0; i < outing.length; i++) {
-        const stepLocation = {
-            location: {
-                name: outing[i].title,
-                lat: outing[i].lat,
-                lng: outing[i].lng,
-            },
-        };
-        data.visits[outing[i]._id] = stepLocation;
-    }
+//     for (let i = 0; i < outing.length; i++) {
+//         const stepLocation = {
+//             location: {
+//                 name: outing[i].title,
+//                 lat: outing[i].lat,
+//                 lng: outing[i].lng,
+//             },
+//         };
+//         data.visits[outing[i]._id] = stepLocation;
+//     }
 
-    data.fleet = {
-        vehicle_1: {
-            start_location: {
-                id: 'initialLocation',
-                name: 'Baker Berry',
-                lat: 43.705267,
-                lng: -72.288719,
-            },
-        },
-    };
+//     data.fleet = {
+//         vehicle_1: {
+//             start_location: {
+//                 id: 'initialLocation',
+//                 name: 'Baker Berry',
+//                 lat: 43.705267,
+//                 lng: -72.288719,
+//             },
+//         },
+//     };
 
-    const options = {
-        url: 'https://api.routific.com/v1/vrp',
-        json: data,
-        headers: {
-            Authorization: 'bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1ODFhNzI1NzUwY2MxMjUxN2QxZTcwZjgiLCJpYXQiOjE0NzgxMjgyMTV9.ejaVxuKZSuk54YWfeJ7s-s7hQz91ZTIc0ntt_M6irPY',
-        },
-    };
-    function callback(error, response, body) {
-        if (!error && response.statusCode == 200) {
-            const lookup = {};
-            for (let j = 0; j < outing.length; j++) {
-                lookup[outing[j]._id] = outing[j];
-            }
-            const finalResult = [];
+//     const options = {
+//         url: 'https://api.routific.com/v1/vrp',
+//         json: data,
+//         headers: {
+//             Authorization: `bearer ${process.env.ROUTIFIC_KEY}`,
+//         },
+//     };
+//     function callback(error, response, body) {
+//         if (!error && response.statusCode == 200) {
+//             const lookup = {};
+//             for (let j = 0; j < outing.length; j++) {
+//                 lookup[outing[j]._id] = outing[j];
+//             }
+//             const finalResult = [];
 
-            const solution = body.solution;
-            const route = solution.vehicle_1;
+//             const solution = body.solution;
+//             const route = solution.vehicle_1;
 
-            // NOTE: Starting at 1 because initial location is start location
-            for (let k = 1; k < route.length; k++) {
-                const nextId = route[k].location_id;
-                finalResult.push(lookup[nextId]);
-            }
-            res.json({
-                detailedSteps: finalResult,
-            });
-        } else {
-            // ... Handle error
-            res.send(error);
-        }
-    }
-    request.post(options, callback);
-};
+//             // NOTE: Starting at 1 because initial location is start location
+//             for (let k = 1; k < route.length; k++) {
+//                 const nextId = route[k].location_id;
+//                 finalResult.push(lookup[nextId]);
+//             }
+//             res.json({
+//                 detailedSteps: finalResult,
+//             });
+//         } else {
+//             // ... Handle error
+//             res.send(error);
+//         }
+//     }
+//     request.post(options, callback);
+// };
 
 // function to optimize route using RouteXL API.
 export const optimizeRouteXL = (req, res, warmup, outing) => {
@@ -110,12 +110,12 @@ export const optimizeRouteXL = (req, res, warmup, outing) => {
         lng: -72.288719,
     };
 
-    //optimized route starts with large outing
+    // optimized route starts with large outing
     for (let i = 0; i < outing.length; i++) {
         const stepLocation = {
             address: outing[i].title,
-            lat: `${outing[i].lat}`,
-            lng: `${outing[i].lng}`,
+            lat: `${outing[i].loc.coordinates[1]}`,
+            lng: `${outing[i].loc.coordinates[0]}`,
         };
         locations.push(stepLocation);
     }
@@ -123,7 +123,8 @@ export const optimizeRouteXL = (req, res, warmup, outing) => {
     // TODO: Push end location as phone's current location (for now, pushing Dartmouth Green)
     locations.push(theGreen);
 
-    const auth = 'Basic ' + new Buffer(process.env.ROUTEXL_USERNAME + ':' + process.env.ROUTEXL_PASSWORD).toString('base64');
+    const routeXLAuth = new Buffer(`${process.env.ROUTEXL_USERNAME}:${process.env.ROUTEXL_PASSWORD}`).toString('base64');
+    const auth = `Basic ${routeXLAuth}`;
 
     const options = {
         url: 'https://api.routexl.nl/tour',
