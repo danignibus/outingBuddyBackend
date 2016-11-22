@@ -5,7 +5,7 @@ dotenv.config({ silent: true });
 export const createStep = (req, res) => {
     const step = new Step();
 
-    step.author = req.user;
+    //step.author = req.user;
     step.description = req.query.description;
     step.duration = req.query.duration;
     step.loc.coordinates = [req.query.lng, req.query.lat];

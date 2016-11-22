@@ -5,20 +5,6 @@ import Step from '../models/step_model';
 import dotenv from 'dotenv';
 dotenv.config({ silent: true });
 
-export const createStep = (req, res) => {
-    const step = new Step();
-    step.title = 'hello!';
-    step.description = 'description';
-
-    step.save()
-        .then(result => {
-            res.send(result);
-        })
-    .catch(error => {
-        res.send(error);
-    });
-};
-
 export const getSteps = (req, res) => {
     Step.find({}, (err, obj) => { res.send(obj); });
 };

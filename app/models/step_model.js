@@ -2,7 +2,7 @@ import mongoose, { Schema } from 'mongoose';
 
 // create a schema for outings/description
 const StepSchema = new Schema({
-    author: String,
+    author: { type: Schema.Types.ObjectId, ref: 'User' },
     description: String,
     duration: Number,
     loc: {
