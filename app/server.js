@@ -15,9 +15,9 @@ const app = express();
 // const server = http.createServer(app);
 const TwilioSMSBot = require('botkit-sms');
 const controller = TwilioSMSBot({
-    account_sid: 'AC92e5ed98b84911ee8d571b78b5650c38',
-    auth_token: 'c15e339ffe42774e2257fa9b4f5b3924',
-    twilio_number: '+14082146413',
+    account_sid: process.env.TWILIO_ACCOUNT_ID,
+    auth_token: process.env.TWILIO_AUTH_TOKEN,
+    twilio_number: process.env.TWILIO_NUMBER,
 });
 
 const Users = require('./controllers/user_controller');
