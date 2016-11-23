@@ -17,15 +17,14 @@ router.post('/signup', Users.signup);
 router.route('/randomStep')
     .get(requireAuth, Outings.getRandomStep);
 
-// TODO: comment back in once Kevin implements auth
-// router.route('/outing')
-//     .get(requireAuth, Outings.initiateOuting);
+router.route('/outing')
+    .get(requireAuth, Outings.initiateOuting);
 
 router.route('/outing')
     .get(Outings.initiateOuting);
 
 router.route('/step')
-	.post(Steps.createStep);
+	.post(requireAuth, Steps.createStep);
 
 router.route('/signup')
     .get(Users.signup);
