@@ -17,8 +17,8 @@ router.post('/signup', Users.signup);
 router.route('/randomStep')
     .get(requireAuth, Outings.getRandomStep);
 
-router.route('/outing')
-    .get(requireAuth, Outings.initiateOuting);
+// router.route('/outing')
+//     .get(requireAuth, Outings.initiateOuting);
 
 router.route('/outing')
     .get(Outings.initiateOuting);

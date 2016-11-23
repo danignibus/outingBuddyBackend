@@ -45,6 +45,17 @@ export const saveJournalEntry = (phoneNumber, journal) => {
         });
 };
 
+export const saveCurrentOutingProgress = (userId, outingId, currentStep) => {
+    User.findOneAndUpdate(
+        { _id: userId },
+        { currentOuting: [outingId, currentStep] },
+        (err, user) => {
+            if (err) {
+                console.log('got an error in saveCurrentOutingProgress');
+            }
+        });
+};
+
 // Return a new token
 export const signin = (req, res, next) => {
     res.send({ token: tokenForUser(req.user) });

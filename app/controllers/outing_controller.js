@@ -1,7 +1,9 @@
 // import consts from '../consts.js';
 // import Routific  from 'routific';
 import request from 'request';
+import Outing from '../models/outing_model';
 import Step from '../models/step_model';
+const UserController = require('../controllers/user_controller');
 import dotenv from 'dotenv';
 dotenv.config({ silent: true });
 
@@ -86,7 +88,33 @@ export const getRandomStep = (req, res) => {
 //     request.post(options, callback);
 // };
 
-// function to optimize route using RouteXL API.
+/*
+This function saves the generated outing to the outings collection and calls
+a function to save the generated outing to the user's currentOuting field.
+*/
+export const saveAndReturnOuting = (req, res, detailedSteps) => {
+    const outing = new Outing();
+    outing.detailedSteps = detailedSteps;
+
+    outing.save()
+        .then(result => {
+            // TODO: when not testing, change to req.user._id
+            // const userId = req.user._id ? req.user_id : process.env.TEST_USER_ID;
+            const userId = process.env.TEST_USER_ID;
+            UserController.saveCurrentOutingProgress(userId, result._id, 0);
+            res.json({
+                detailedSteps,
+            });
+        })
+    .catch(error => {
+        res.send(error);
+    });
+};
+
+/*
+This function uses the RouteXL API to optimized the generated outing based on the user's current
+location so that the user is sent on the most efficient route.
+*/
 export const optimizeRouteXL = (req, res, warmup, outing) => {
     const locations = [];
 
@@ -143,9 +171,11 @@ export const optimizeRouteXL = (req, res, warmup, outing) => {
                 finalResult.push(lookup[nextStepName]);
             }
 
-            res.json({
-                detailedSteps: finalResult,
-            });
+            saveAndReturnOuting(req, res, finalResult);
+
+            // res.json({
+            //     detailedSteps: finalResult,
+            // });
         } else {
             res.send(error);
         }
@@ -153,6 +183,10 @@ export const optimizeRouteXL = (req, res, warmup, outing) => {
     request.post(options, callback);
 };
 
+/*
+This function fills in the remainder of the outing, based on the duration and location of
+the main step and the warmup.
+*/
 export const completeOuting = (req, res, warmup, outing, remainingDuration, stepIds) => {
     // get desired radius from client
     // NOTE: must have enough populated outings for small radii to work!
@@ -231,9 +265,7 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds) => {
                 finalResult.push(warmup);
                 finalResult.push(outing[0]);
                 // return
-                res.json({
-                    detailedSteps: finalResult,
-                });
+                saveAndReturnOuting(req, res, finalResult);
             } else {
                 completeOuting(req, res, warmup, outing, newRemainingDuration, stepIds);
             }
@@ -259,9 +291,7 @@ export const initiateOuting = (req, res) => {
             stepIds.push(step._id);
             const newRemainingDuration = req.query.duration - step.duration;
             if (newRemainingDuration === 0) {
-                res.json({
-                    detailedSteps: outing,
-                });
+                saveAndReturnOuting(req, res, outing);
             } else {
                 getWarmup(req, res, outing, newRemainingDuration, stepIds);
             }
