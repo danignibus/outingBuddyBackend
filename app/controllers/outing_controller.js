@@ -7,10 +7,16 @@ const UserController = require('../controllers/user_controller');
 import dotenv from 'dotenv';
 dotenv.config({ silent: true });
 
+/*
+This function returns all outings in the database.
+*/
 export const getSteps = (req, res) => {
     Step.find({}, (err, obj) => { res.send(obj); });
 };
 
+/*
+This function (used by the SMS bot) pulls a random outing from the database.
+*/
 export const getRandomStep = (req, res) => {
     Step
         .count()
@@ -101,7 +107,7 @@ export const saveAndReturnOuting = (req, res, detailedSteps) => {
             // TODO: when not testing, change to req.user._id
             // const userId = req.user._id ? req.user_id : process.env.TEST_USER_ID;
             const userId = process.env.TEST_USER_ID;
-            UserController.saveCurrentOutingProgress(userId, result._id, 0);
+            UserController.saveCurrentOutingProgress(res, userId, result._id, 0);
             res.json({
                 detailedSteps,
             });
@@ -229,6 +235,11 @@ export const completeOuting = (req, res, warmup, outing, remainingDuration, step
     }
 };
 
+/*
+This function pulls a warmup (flagged as a 1 in the warmup field) from the database that is
+within a close range to the main activity of the outing. When the outing is fully generated, the
+user is sent on this warmup prior to the rest of the steps in the outing.
+*/
 export const getWarmup = (req, res, outing, remainingDuration, stepIds) => {
     // get close by activity for warmup
     // TODO: change this to .5 once we populate warmups!
@@ -272,6 +283,11 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds) => {
         });
 };
 
+/*
+This function is first called when the outing endpoint is hit. It pulls the MAIN outing event from the
+database, which currently is calculated based on the user's duration and location. It then calls
+getWarmup (if the duration is not already filled) to continue to populate the outing.
+*/
 export const initiateOuting = (req, res) => {
     const duration = req.query.duration;
 
@@ -298,6 +314,9 @@ export const initiateOuting = (req, res) => {
         });
 };
 
+/*
+This function (used by the SMS bot) pulls a random outing from the database.
+*/
 export const getRandomOutingStudy = (callback) => {
     Step
         .count()

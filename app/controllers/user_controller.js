@@ -8,18 +8,31 @@ function tokenForUser(user) {
     return jwt.encode({ sub: user.id, iat: timestamp }, process.env.API_SECRET);
 }
 
+/*
+This function gets a user by phone number.
+*/
 export const getUser = (callback, phoneNumber) => {
     User.findOne({ phoneNumber }).exec(callback);
 };
 
+/*
+This function gets all users in the group '2'.
+*/
 export const getJournalUsers = (callback) => {
     User.find({ group: '2' }).exec(callback);
 };
 
+/*
+This function gets all users.
+*/
 export const getUsers = (callback) => {
     User.find().exec(callback);
 };
 
+/*
+This function is specific to the SMS-bot study; it updated a lastPrompted field to the current
+time for a specific user in order to calculate when the user next needed to be prompted.
+*/
 export const updateLastPrompted = (phoneNumber) => {
     // get user with that phone number, update lastPrompted to current time
     const now = new Date();
@@ -33,6 +46,10 @@ export const updateLastPrompted = (phoneNumber) => {
         });
 };
 
+/*
+This function is specific to the SMS-bot study; it was called when users submitted
+a 'journal' entry via text.
+*/
 export const saveJournalEntry = (phoneNumber, journal) => {
     //get user with that phone number, push journal onto journals array
     User.findOneAndUpdate(
@@ -45,22 +62,49 @@ export const saveJournalEntry = (phoneNumber, journal) => {
         });
 };
 
-export const saveCurrentOutingProgress = (userId, outingId, currentStep) => {
+/*
+This function updates the user's current outing to the input outing Id and step.
+*/
+export const saveCurrentOutingProgress = (res, userId, outingId, currentStep) => {
     User.findOneAndUpdate(
         { _id: userId },
-        { currentOuting: [outingId, currentStep] },
+        { $set:
+            {
+                currentOuting: [outingId, currentStep],
+            },
+        },
         (err, user) => {
             if (err) {
-                console.log('got an error in saveCurrentOutingProgress');
+                // TODO: update error
+                res.send('Error saving current outing progress');
             }
         });
 };
 
-// Return a new token
+/*
+This function is called by the client when the user moves onto a new step. It
+calls saveCurrentOutingProgress, which updates the database according to the
+user's currentOuting field to the proper outing Id and step.
+*/
+export const updateCurrentOutingProgress = (req, res, next) => {
+    // TODO: change user id to req.user._id
+    const tempUserId = process.env.TEST_USER_ID;
+    saveCurrentOutingProgress(res, tempUserId, req.query.outingId, req.query.currentStep);
+    res.send('Successfully updated current outing progress');
+};
+
+/*
+Returns a new token upon signin for user. Passport middleware performs password checks.
+*/
 export const signin = (req, res, next) => {
     res.send({ token: tokenForUser(req.user) });
 };
 
+/*
+This function allows a user to sign up with phone number and password. It ensures that
+the phone number does not already exist in the database and creates a new User object if not.
+Otherwise, it returns an error.
+*/
 export const signup = (req, res, next) => {
     const phoneNumber = req.query.phoneNumber;
     const password = req.query.password;

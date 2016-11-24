@@ -2,6 +2,10 @@ import Step from '../models/step_model';
 import dotenv from 'dotenv';
 dotenv.config({ silent: true });
 
+/*
+This function receives data from the client for a step submitted by a user,
+and stores this step in the Mongo database.
+*/
 export const createStep = (req, res) => {
     const step = new Step();
 
