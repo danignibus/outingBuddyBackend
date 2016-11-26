@@ -68,10 +68,7 @@ This function updates the user's current outing to the input outing Id and step.
 export const saveCurrentOutingProgress = (res, userId, outingId, currentStep) => {
     User.findOneAndUpdate(
         { _id: userId },
-        { $set:
-            {
-                currentOuting: [outingId, currentStep],
-            },
+        { $set: { currentOuting: [outingId, currentStep] },
         },
         (err, user) => {
             if (err) {
@@ -86,7 +83,7 @@ This function is called by the client when the user moves onto a new step. It
 calls saveCurrentOutingProgress, which updates the database according to the
 user's currentOuting field to the proper outing Id and step.
 */
-export const updateCurrentOutingProgress = (req, res) => {
+export const updateUser = (req, res) => {
     // TODO: change user id to req.user._id
     // let tempUserId;
     // if (req.user._id) {
@@ -97,8 +94,11 @@ export const updateCurrentOutingProgress = (req, res) => {
 
     const tempUserId = process.env.TEST_USER_ID;
    // const tempUserId = process.env.TEST_USER_ID;
-    saveCurrentOutingProgress(res, tempUserId, req.query.outingId, req.query.currentStep);
-    res.send('Successfully updated current outing progress');
+
+    if (req.query.outingId && req.query.currentStep) {
+        saveCurrentOutingProgress(res, tempUserId, req.query.outingId, req.query.currentStep);
+        res.send('Successfully updated current outing progress');
+    }
 };
 
 /*
@@ -113,6 +113,22 @@ export const getOutingProgress = (req, res, next) => {
             currentOuting,
         });
     });
+};
+
+/*
+Updates user's outings to include additonal outing Id and corresponding journal id.
+*/
+export const updateCompletedOutings = (userId, reflectionId, outingId) => {
+    console.log('got to updatecompleted outings');
+    User.findOneAndUpdate(
+        { _id: userId },
+        { $push: { outings: [outingId, reflectionId] } },
+        (err, user) => {
+            console.log('user' + user);
+            if (err) {
+                console.log('got an error in updateCompletedOutings');
+            }
+        });
 };
 
 /*

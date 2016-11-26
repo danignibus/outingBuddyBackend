@@ -8,7 +8,7 @@ const UserSchema = new Schema({
     group: String,
     journals: [],
     lastPrompted: Date,
-    outings: [Number],
+    outings: [],
     password: String,
     phoneNumber: String,
 });

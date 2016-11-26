@@ -1,8 +1,10 @@
 import { Router } from 'express';
+import { requireAuth, requireSignin } from './services/passport';
+
 import * as Outings from './controllers/outing_controller';
+import * as Reflections from './controllers/reflection_controller';
 import * as Steps from './controllers/step_controller';
 import * as Users from './controllers/user_controller';
-import { requireAuth, requireSignin } from './services/passport';
 
 const router = Router();
 
@@ -35,9 +37,12 @@ router.route('/step')
 // example post from postman: http://localhost:9090/api/user?outingId=5836092e061b4b1a1b2b85cf&currentStep=1
 router.route('/user')
 	.get(Users.getOutingProgress)
-	.post(Users.updateCurrentOutingProgress);
+	.post(Users.updateUser);
 
 router.route('/signup')
     .get(Users.signup);
+
+router.route('/reflection')
+	.post(Reflections.addReflection);
 
 export default router;
