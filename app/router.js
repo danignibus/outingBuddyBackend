@@ -18,6 +18,7 @@ router.post('/signup', Users.signup);
 router.route('/randomStep')
     .get(requireAuth, Outings.getRandomStep);
 
+// TODO: requireAuth for outing
 // router.route('/outing')
 //     .get(requireAuth, Outings.initiateOuting);
 
@@ -29,8 +30,11 @@ router.route('/outing')
 router.route('/step')
 	.post(requireAuth, Steps.createStep);
 
+// TODO: requireAuth for user
+// example get from postman: http://localhost:9090/api/user
 // example post from postman: http://localhost:9090/api/user?outingId=5836092e061b4b1a1b2b85cf&currentStep=1
 router.route('/user')
+	.get(Users.getOutingProgress)
 	.post(Users.updateCurrentOutingProgress);
 
 router.route('/signup')

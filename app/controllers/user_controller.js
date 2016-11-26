@@ -86,11 +86,33 @@ This function is called by the client when the user moves onto a new step. It
 calls saveCurrentOutingProgress, which updates the database according to the
 user's currentOuting field to the proper outing Id and step.
 */
-export const updateCurrentOutingProgress = (req, res, next) => {
+export const updateCurrentOutingProgress = (req, res) => {
     // TODO: change user id to req.user._id
+    // let tempUserId;
+    // if (req.user._id) {
+    //     tempUserId = req.user._id;
+    // } else {
+    //     tempUserId = process.env.TEST_USER_ID;
+    // }
+
     const tempUserId = process.env.TEST_USER_ID;
+   // const tempUserId = process.env.TEST_USER_ID;
     saveCurrentOutingProgress(res, tempUserId, req.query.outingId, req.query.currentStep);
     res.send('Successfully updated current outing progress');
+};
+
+/*
+This function returns the current outing and step that the user is on.
+*/
+export const getOutingProgress = (req, res, next) => {
+    // TODO: change user id to req.user._id
+    const tempUserId = process.env.TEST_USER_ID;
+    User.findOne({ _id: tempUserId }).exec((err, user) => {
+        const currentOuting = user.currentOuting;
+        res.json({
+            currentOuting,
+        });
+    });
 };
 
 /*
