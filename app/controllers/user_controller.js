@@ -116,6 +116,33 @@ export const getOutingProgress = (req, res, next) => {
 };
 
 /*
+This function gets all completed outing IDs and corresponding reflection
+IDs for a user.
+Note: this is a work in progress; we need to determine what should be displayed
+on the frontend. I'm leaning toward title of outing and a snippet of the reflection.
+Once we decide, I will modify the query accordingly.
+*/
+export const getPastOutings = (req, res, next) => {
+    // TODO: change user id to req.user._id
+    const tempUserId = process.env.TEST_USER_ID;
+    console.log('temp user id' + tempUserId);
+    User.findOne({ _id: tempUserId }).exec((err, user) => {
+        let outings;
+        console.log(user);
+        console.log('user outings type' + typeof user.outings);
+        if (typeof user.outings === 'undefined') {
+            outings = null;
+        } else {
+            outings = user.outings;
+        }
+        res.json({
+            outings,
+        });
+    });
+};
+
+
+/*
 Updates user's outings to include additonal outing Id and corresponding journal id.
 */
 export const updateCompletedOutings = (userId, reflectionId, outingId) => {
@@ -150,14 +177,18 @@ export const signup = (req, res, next) => {
     if (!phoneNumber || !password) {
         return res.status(422).send('You must provide phone number and password');
     }
+    if (phoneNumber.length !== 10) {
+        return res.status(422).send('Phone number length must be 10 digits');
+    }
+    if (password.length < 8) {
+        return res.status(422).send('Password must be at least 8 characters');
+    }
 
     // mongo query to find if a user already exists with this email.
-    // TODO: remove addition of plus sign for phone number
-    const formattedPhoneNumber = `+${phoneNumber}`;
-    User.findOne({ phoneNumber: formattedPhoneNumber }).exec((err, obj) => {
+    User.findOne({ phoneNumber }).exec((err, obj) => {
         if (obj == null) {
             const user = new User();
-            user.phoneNumber = formattedPhoneNumber;
+            user.phoneNumber = phoneNumber;
             user.password = password;
 
             user.save()

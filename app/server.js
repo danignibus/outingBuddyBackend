@@ -34,6 +34,8 @@ controller.setupWebserver(port, function (err, webserver) {
 
     controller.createWebhookEndpoints(webserver, bot, function () {
         webserver.use('/api', apiRouter);
+        // NOTE: if sending SMS is reimplemented, must format phone number to include country code
+        // before sending!
         // webserver.get('/remind', (req, res) => {
         //     // for each user, if their last prompted is undefined
         //     // or more than 1 hour ago, send a reminder

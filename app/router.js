@@ -39,6 +39,9 @@ router.route('/user')
 	.get(Users.getOutingProgress)
 	.post(Users.updateUser);
 
+router.route('/user/history')
+	.get(Users.getPastOutings);
+
 router.route('/signup')
     .get(Users.signup);
 

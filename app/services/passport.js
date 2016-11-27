@@ -26,8 +26,7 @@ const localLogin = new LocalStrategy(localOptions, (phoneNumber, password, done)
     // otherwise, call done with false
 
     // TODO: remove hacky addition of plus sign to phoneNumber
-    const formattedPhoneNumber = `+${phoneNumber}`;
-    User.findOne({ phoneNumber: formattedPhoneNumber }, (err, user) => {
+    User.findOne({ phoneNumber }, (err, user) => {
         if (err) { return done(err); }
         if (!user) { return done(null, false); }
         // compare passwords - is `password` equal to user.password?
