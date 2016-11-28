@@ -104,9 +104,7 @@ export const saveAndReturnOuting = (req, res, detailedSteps) => {
 
     outing.save()
         .then(result => {
-            // TODO: when not testing, change to req.user._id
-            // const userId = req.user._id ? req.user_id : process.env.TEST_USER_ID;
-            const userId = process.env.TEST_USER_ID;
+            const userId = req.user._id;
             UserController.saveCurrentOutingProgress(res, userId, result._id, 0);
             res.json({
                 detailedSteps,

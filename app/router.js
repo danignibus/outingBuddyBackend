@@ -20,32 +20,30 @@ router.post('/signup', Users.signup);
 router.route('/randomStep')
     .get(requireAuth, Outings.getRandomStep);
 
-// TODO: requireAuth for outing
-// router.route('/outing')
-//     .get(requireAuth, Outings.initiateOuting);
+router.route('/outing')
+    .get(requireAuth, Outings.initiateOuting);
 
 // example get from postman: http://localhost:9090/api/outing?duration=6
-router.route('/outing')
-    .get(Outings.initiateOuting);
+// router.route('/outing')
+//     .get(Outings.initiateOuting);
 
 // example post from postman: http://localhost:9090/api/step?title=River&description=test&lat=45.6345934&lng=23.234234
 router.route('/step')
 	.post(requireAuth, Steps.createStep);
 
-// TODO: requireAuth for user
 // example get from postman: http://localhost:9090/api/user
 // example post from postman: http://localhost:9090/api/user?outingId=5836092e061b4b1a1b2b85cf&currentStep=1
 router.route('/user')
-	.get(Users.getOutingProgress)
-	.post(Users.updateUser);
+	.get(requireAuth, Users.getOutingProgress)
+	.post(requireAuth, Users.updateUser);
 
 router.route('/user/history')
-	.get(Users.getPastOutings);
+	.get(requireAuth, Users.getPastOutings);
 
 router.route('/signup')
     .get(Users.signup);
 
 router.route('/reflection')
-	.post(Reflections.addReflection);
+	.post(requireAuth, Reflections.addReflection);
 
 export default router;

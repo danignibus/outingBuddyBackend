@@ -51,13 +51,13 @@ This function is specific to the SMS-bot study; it was called when users submitt
 a 'journal' entry via text.
 */
 export const saveJournalEntry = (phoneNumber, journal) => {
-    //get user with that phone number, push journal onto journals array
+    // get user with that phone number, push journal onto journals array
     User.findOneAndUpdate(
         { phoneNumber },
         { $push: { journals: journal } },
         (err, user) => {
             if (err) {
-                console.log('got an error in saveJournalEntry');
+                console.log('Error saving SNS journal entry');
             }
         });
 };
@@ -73,7 +73,7 @@ export const saveCurrentOutingProgress = (res, userId, outingId, currentStep) =>
         (err, user) => {
             if (err) {
                 // TODO: update error
-                res.send('Error saving current outing progress');
+                return res.status(400).send('Error saving current outing progress');
             }
         });
 };
@@ -84,19 +84,8 @@ calls saveCurrentOutingProgress, which updates the database according to the
 user's currentOuting field to the proper outing Id and step.
 */
 export const updateUser = (req, res) => {
-    // TODO: change user id to req.user._id
-    // let tempUserId;
-    // if (req.user._id) {
-    //     tempUserId = req.user._id;
-    // } else {
-    //     tempUserId = process.env.TEST_USER_ID;
-    // }
-
-    const tempUserId = process.env.TEST_USER_ID;
-   // const tempUserId = process.env.TEST_USER_ID;
-
     if (req.query.outingId && req.query.currentStep) {
-        saveCurrentOutingProgress(res, tempUserId, req.query.outingId, req.query.currentStep);
+        saveCurrentOutingProgress(res, req.user._id, req.query.outingId, req.query.currentStep);
         res.send('Successfully updated current outing progress');
     }
 };
@@ -105,9 +94,7 @@ export const updateUser = (req, res) => {
 This function returns the current outing and step that the user is on.
 */
 export const getOutingProgress = (req, res, next) => {
-    // TODO: change user id to req.user._id
-    const tempUserId = process.env.TEST_USER_ID;
-    User.findOne({ _id: tempUserId }).exec((err, user) => {
+    User.findOne({ _id: req.user._id }).exec((err, user) => {
         const currentOuting = user.currentOuting;
         res.json({
             currentOuting,
@@ -123,13 +110,8 @@ on the frontend. I'm leaning toward title of outing and a snippet of the reflect
 Once we decide, I will modify the query accordingly.
 */
 export const getPastOutings = (req, res, next) => {
-    // TODO: change user id to req.user._id
-    const tempUserId = process.env.TEST_USER_ID;
-    console.log('temp user id' + tempUserId);
-    User.findOne({ _id: tempUserId }).exec((err, user) => {
+    User.findOne({ _id: req.user._id }).exec((err, user) => {
         let outings;
-        console.log(user);
-        console.log('user outings type' + typeof user.outings);
         if (typeof user.outings === 'undefined') {
             outings = null;
         } else {
@@ -140,7 +122,6 @@ export const getPastOutings = (req, res, next) => {
         });
     });
 };
-
 
 /*
 Updates user's outings to include additonal outing Id and corresponding journal id.
