@@ -2,6 +2,10 @@ import apiRouter from './router';
 import express from 'express';
 import mongoose from 'mongoose';
 
+require('babel-register')({
+   presets: [ 'es2015' ]
+});
+
 const http = require('http');
 
 // DB Setup
