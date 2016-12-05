@@ -1,5 +1,6 @@
 // import consts from '../consts.js';
 // import Routific  from 'routific';
+import async from 'async';
 import request from 'request';
 import Outing from '../models/outing_model';
 import Step from '../models/step_model';
@@ -98,9 +99,10 @@ export const getRandomStep = (req, res) => {
 This function saves the generated outing to the outings collection and calls
 a function to save the generated outing to the user's currentOuting field.
 */
-export const saveAndReturnOuting = (req, res, detailedSteps) => {
+export const saveAndReturnOuting = (req, res, detailedSteps, stepIds) => {
     const outing = new Outing();
     outing.detailedSteps = detailedSteps;
+    outing.stepIds = stepIds;
 
     outing.save()
         .then(result => {
@@ -119,7 +121,7 @@ export const saveAndReturnOuting = (req, res, detailedSteps) => {
 This function uses the RouteXL API to optimized the generated outing based on the user's current
 location so that the user is sent on the most efficient route.
 */
-export const optimizeRouteXL = (req, res, warmup, outing) => {
+export const optimizeRouteXL = (req, res, warmup, outing, stepIds) => {
     const locations = [];
 
     const theGreen = {
@@ -175,11 +177,7 @@ export const optimizeRouteXL = (req, res, warmup, outing) => {
                 finalResult.push(lookup[nextStepName]);
             }
 
-            saveAndReturnOuting(req, res, finalResult);
-
-            // res.json({
-            //     detailedSteps: finalResult,
-            // });
+            saveAndReturnOuting(req, res, finalResult, stepIds);
         } else {
             res.send(error);
         }
@@ -203,7 +201,7 @@ export const completeOuting = (req, res, warmup, outing, remainingDuration, step
 
     const radiusInRadians = miles / 3959;
     if (remainingDuration === 0) {
-        optimizeRouteXL(req, res, warmup, outing);
+        optimizeRouteXL(req, res, warmup, outing, stepIds);
     } else if (remainingDuration > 0) {
         const jsonObject = outing[0].toJSON();
 
@@ -274,7 +272,7 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds) => {
                 finalResult.push(warmup);
                 finalResult.push(outing[0]);
                 // return
-                saveAndReturnOuting(req, res, finalResult);
+                saveAndReturnOuting(req, res, finalResult, stepIds);
             } else {
                 completeOuting(req, res, warmup, outing, newRemainingDuration, stepIds);
             }
@@ -282,7 +280,7 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds) => {
 };
 
 /*
-This function is first called when the outing endpoint is hit. It pulls the MAIN outing event from the
+This function is called when an outing is requested. It pulls the MAIN outing event from the
 database, which currently is calculated based on the user's duration and location. It then calls
 getWarmup (if the duration is not already filled) to continue to populate the outing.
 */
@@ -305,11 +303,125 @@ export const initiateOuting = (req, res) => {
             stepIds.push(step._id);
             const newRemainingDuration = req.query.duration - step.duration;
             if (newRemainingDuration === 0) {
-                saveAndReturnOuting(req, res, outing);
+                saveAndReturnOuting(req, res, outing, stepIds);
             } else {
                 getWarmup(req, res, outing, newRemainingDuration, stepIds);
             }
         });
+};
+
+/*
+This function queries the database for an alternate step in a generated outing. It returns an alternate step
+if one is available and otherwise returns an error.
+*/
+export const skipStep = (req, res) => {
+    const offendingStepId = req.query.skip;
+    const currentOutingId = req.query.outingId;
+    // TODO: remove hard coded step and outing Ids
+    // const offendingStepId = "57f59c5674746a6754df0d4b";
+    // const currentOutingId = "58361382fa73dd1b031a4e49";
+
+    // Get step and outing by ID
+    const asyncTasks = [];
+
+    asyncTasks.push(function(callback) {
+        try {
+            Step.findOne({ _id: offendingStepId }).exec(callback);
+        } catch (error) {
+            callback(error);
+        }
+    });
+
+    asyncTasks.push(function(callback) {
+        try {
+            Outing.findOne({ _id: currentOutingId }).exec(callback);
+        } catch (error) {
+            callback(error);
+        }
+    });
+
+    async.parallel(asyncTasks, function(err, results) {
+        if (err) {
+            throw err;
+        }
+
+        const offendingStep = results[0];
+        const currentOuting = results[1];
+        const currentOutingSteps = currentOuting.detailedSteps;
+        const miles = 5;
+        const radiusInRadians = miles / 3959;
+
+        if (offendingStep.warmup === 1) {
+            // query on currentOuting[1] because the main event will be the second item in the array
+            const query = {
+                loc: {
+                    $geoWithin: {
+                        $centerSphere: [currentOutingSteps[1].loc.coordinates, radiusInRadians],
+                    },
+                },
+                _id: {
+                    $nin: currentOuting.stepIds,
+                },
+                warmup: 1,
+            };
+
+            Step
+                .find(query).
+                exec((err, steps) => {
+                    const arrayLength = steps.length;
+                    const warmup = steps[Math.floor(Math.random() * arrayLength)];
+
+                    // TODO: replace current stepIds with new warmup Id
+                    res.send(warmup);
+                    // TODO: replace outing detailedSteps with warmup step
+                    // TODO: if it qualifies, replace featured step with new step
+                    // stepIds.push(warmup._id);
+                    // TODO: If no other warmup exists, return error
+                    // TODO: call updateOuting to replace stepIds and detailedSteps
+                });
+        } else {
+            // If offendingStep is not a warmup, query DB for another activity in the area that is same duration
+            const query = {
+                loc: {
+                    $geoWithin: {
+                        $centerSphere: [currentOutingSteps[1].loc.coordinates, radiusInRadians],
+                    },
+                },
+                _id: {
+                    $nin: currentOuting.stepIds,
+                },
+                warmup: 0,
+                duration: offendingStep.duration,
+            };
+
+            Step
+                .find(query).
+                exec((err, steps) => {
+                    const arrayLength = steps.length;
+                    const newStep = steps[Math.floor(Math.random() * arrayLength)];
+
+                    // TODO: replace current stepIds with new warmup Id
+                    res.send(newStep);
+                    // TODO: replace outing detailedSteps with warmup step
+                    // TODO: if it qualifies, replace featured step with new step
+                    // stepIds.push(warmup._id);
+                    // TODO: If no other warmup exists, return error
+                    // TODO: call updateOuting to replace stepIds and detailedSteps
+                });
+        }
+    });
+};
+
+/*
+This function is first called when the outing endpoint is hit, handling the request according to
+which parameters are specified.
+*/
+export const handleOutingRequest = (req, res) => {
+    if (req.query.outingId && req.query.skip) {
+        skipStep(req, res);
+    } else {
+        initiateOuting(req, res);
+    }
 };
 
 /*

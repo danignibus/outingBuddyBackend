@@ -21,7 +21,7 @@ router.route('/randomStep')
     .get(requireAuth, Outings.getRandomStep);
 
 router.route('/outing')
-    .get(requireAuth, Outings.initiateOuting);
+    .get(requireAuth, Outings.handleOutingRequest);
 
 // example get from postman: http://localhost:9090/api/outing?duration=6
 // router.route('/outing')

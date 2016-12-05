@@ -13,6 +13,7 @@
   },
   "license": "ISC",
   "dependencies": {
+    "async": "^2.1.4",
     "babel-cli": "^6.10.1",
     "babel-preset-es2015": "^6.9.0",
     "babel-preset-stage-2": "^6.5.0",
