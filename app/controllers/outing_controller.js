@@ -392,6 +392,7 @@ export const skipStep = (req, res) => {
                 },
                 warmup: 0,
                 duration: offendingStep.duration,
+                
             };
 
             Step
