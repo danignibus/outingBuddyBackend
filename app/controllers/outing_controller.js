@@ -311,15 +311,52 @@ export const initiateOuting = (req, res) => {
 };
 
 /*
+This function replaces the current outing with the generated step from skipStep,
+removing the skipped step.
+*/
+export const updateOuting = (req, res, currentOuting, detailedSteps, replacedStep, newStep) => {
+    const oldStepIds = currentOuting.stepIds;
+    // Replace existing detailedSteps with new generated step
+    const newOutingSteps = [];
+    for (var i = 0; i < detailedSteps.length; i++) {
+        const step = detailedSteps[i];
+        if (step._id.toString() == replacedStep._id.toString()) {
+            newOutingSteps.push(newStep);
+        } else {
+            newOutingSteps.push(step);
+        }
+    }
+
+    // Replace existing stepIds with new generated step Id
+    const newStepIds = [];
+    for (var j = 0; j < oldStepIds.length; j++) {
+        const stepId = oldStepIds[j];
+        if (stepId.toString() == replacedStep._id.toString()) {
+            newStepIds.push(newStep._id);
+        } else {
+            newStepIds.push(stepId);
+        }
+    }
+
+    Outing.findOneAndUpdate(
+        { _id: currentOuting._id },
+        { $set: { detailedSteps: newOutingSteps, stepIds: newStepIds },
+        },
+        (err, user) => {
+            if (err) {
+                // TODO: update error
+                return res.status(400).send('Error updating outing with new steps');
+            }
+        });
+};
+
+/*
 This function queries the database for an alternate step in a generated outing. It returns an alternate step
-if one is available and otherwise returns an error.
+if one is available and otherwise returns a 404.
 */
 export const skipStep = (req, res) => {
     const offendingStepId = req.query.skip;
     const currentOutingId = req.query.outingId;
-    // TODO: remove hard coded step and outing Ids
-    // const offendingStepId = "57f59c5674746a6754df0d4b";
-    // const currentOutingId = "58361382fa73dd1b031a4e49";
 
     // Get step and outing by ID
     const asyncTasks = [];
@@ -368,16 +405,14 @@ export const skipStep = (req, res) => {
             Step
                 .find(query).
                 exec((err, steps) => {
+                    if (steps.length === 0) {
+                        return res.status(404).send('Alternate steps not found');
+                    }
                     const arrayLength = steps.length;
                     const warmup = steps[Math.floor(Math.random() * arrayLength)];
 
-                    // TODO: replace current stepIds with new warmup Id
+                    updateOuting(req, res, currentOuting, currentOutingSteps, offendingStep, warmup);
                     res.send(warmup);
-                    // TODO: replace outing detailedSteps with warmup step
-                    // TODO: if it qualifies, replace featured step with new step
-                    // stepIds.push(warmup._id);
-                    // TODO: If no other warmup exists, return error
-                    // TODO: call updateOuting to replace stepIds and detailedSteps
                 });
         } else {
             // If offendingStep is not a warmup, query DB for another activity in the area that is same duration
@@ -392,22 +427,19 @@ export const skipStep = (req, res) => {
                 },
                 warmup: 0,
                 duration: offendingStep.duration,
-                
             };
 
             Step
                 .find(query).
                 exec((err, steps) => {
+                    if (steps.length === 0) {
+                        return res.status(404).send('Alternate steps not found');
+                    }
                     const arrayLength = steps.length;
                     const newStep = steps[Math.floor(Math.random() * arrayLength)];
 
-                    // TODO: replace current stepIds with new warmup Id
+                    updateOuting(req, res, currentOuting, currentOutingSteps, offendingStep, newStep);
                     res.send(newStep);
-                    // TODO: replace outing detailedSteps with warmup step
-                    // TODO: if it qualifies, replace featured step with new step
-                    // stepIds.push(warmup._id);
-                    // TODO: If no other warmup exists, return error
-                    // TODO: call updateOuting to replace stepIds and detailedSteps
                 });
         }
     });
