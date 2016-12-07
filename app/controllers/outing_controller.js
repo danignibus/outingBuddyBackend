@@ -32,6 +32,69 @@ export const getRandomStep = (req, res) => {
         });
 };
 
+// function to optimize route using Routific API.
+// export const optimizeRouteRoutific = (req, res, outing) => {
+//     const data = {};
+//     const visits = {};
+
+//     data.visits = visits;
+
+//     for (let i = 0; i < outing.length; i++) {
+//         const stepLocation = {
+//             location: {
+//                 name: outing[i].title,
+//                 lat: outing[i].lat,
+//                 lng: outing[i].lng,
+//             },
+//         };
+//         data.visits[outing[i]._id] = stepLocation;
+//     }
+
+//     data.fleet = {
+//         vehicle_1: {
+//             start_location: {
+//                 id: 'initialLocation',
+//                 name: 'Baker Berry',
+//                 lat: 43.705267,
+//                 lng: -72.288719,
+//             },
+//         },
+//     };
+
+//     const options = {
+//         url: 'https://api.routific.com/v1/vrp',
+//         json: data,
+//         headers: {
+//             Authorization: `bearer ${process.env.ROUTIFIC_KEY}`,
+//         },
+//     };
+//     function callback(error, response, body) {
+//         if (!error && response.statusCode == 200) {
+//             const lookup = {};
+//             for (let j = 0; j < outing.length; j++) {
+//                 lookup[outing[j]._id] = outing[j];
+//             }
+//             const finalResult = [];
+
+//             const solution = body.solution;
+//             const route = solution.vehicle_1;
+
+//             // NOTE: Starting at 1 because initial location is start location
+//             for (let k = 1; k < route.length; k++) {
+//                 const nextId = route[k].location_id;
+//                 finalResult.push(lookup[nextId]);
+//             }
+//             res.json({
+//                 detailedSteps: finalResult,
+//             });
+//         } else {
+//             // ... Handle error
+//             res.send(error);
+//         }
+//     }
+//     request.post(options, callback);
+// };
+
 /*
 This function saves the generated outing to the outings collection and calls
 a function to save the generated outing to the user's currentOuting field.
@@ -61,12 +124,6 @@ location so that the user is sent on the most efficient route.
 export const optimizeRouteXL = (req, res, warmup, outing, stepIds) => {
     const locations = [];
 
-    const theGreen = {
-        address: 'Green',
-        lat: 43.705267,
-        lng: -72.288719,
-    };
-
     // optimized route starts with large outing
     for (let i = 0; i < outing.length; i++) {
         const stepLocation = {
@@ -77,8 +134,21 @@ export const optimizeRouteXL = (req, res, warmup, outing, stepIds) => {
         locations.push(stepLocation);
     }
 
-    // TODO: Push end location as phone's current location (for now, pushing Dartmouth Green)
-    locations.push(theGreen);
+    let finalLocation;
+    if (req.query.lat && req.query.lng) {
+        finalLocation = {
+            address: 'finalLocation',
+            lat: req.query.lat,
+            lng: req.query.lng,
+        };
+    } else {
+        finalLocation = {
+            address: 'Green',
+            lat: 43.705267,
+            lng: -72.288719,
+        };
+    }
+    locations.push(finalLocation);
 
     const routeXLAuth = new Buffer(`${process.env.ROUTEXL_USERNAME}:${process.env.ROUTEXL_PASSWORD}`).toString('base64');
     const auth = `Basic ${routeXLAuth}`;
@@ -92,6 +162,9 @@ export const optimizeRouteXL = (req, res, warmup, outing, stepIds) => {
     };
 
     function callback(error, response, body) {
+        if (error) {
+            console.log('got an error' + error);
+        }
         if (!error && response.statusCode === 200) {
             // create map
             const lookup = {};
@@ -168,13 +241,13 @@ export const completeOuting = (req, res, warmup, outing, remainingDuration, step
         }
 
         stepQuery.exec((err, steps) => {
-                const arrayLength = steps.length;
-                const step = steps[Math.floor(Math.random() * arrayLength)];
-                outing.push(step);
-                stepIds.push(step._id);
-                const newRemainingDuration = remainingDuration - step.duration;
-                completeOuting(req, res, warmup, outing, newRemainingDuration, stepIds);
-            });
+            const arrayLength = steps.length;
+            const step = steps[Math.floor(Math.random() * arrayLength)];
+            outing.push(step);
+            stepIds.push(step._id);
+            const newRemainingDuration = remainingDuration - step.duration;
+            completeOuting(req, res, warmup, outing, newRemainingDuration, stepIds);
+        });
     }
 };
 
@@ -212,30 +285,31 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds) => {
 
     // get all results, then index randomly into array
     warmupQuery.exec((err, steps) => {
-            const arrayLength = steps.length;
-            const warmup = steps[Math.floor(Math.random() * arrayLength)];
+        const arrayLength = steps.length;
+        const warmup = steps[Math.floor(Math.random() * arrayLength)];
 
-            // obj is the warmup activity; all warmups are 1 hour duration
-            stepIds.push(warmup._id);
-            const newRemainingDuration = remainingDuration - warmup.duration;
+        // obj is the warmup activity; all warmups are 1 hour duration
+        stepIds.push(warmup._id);
+        const newRemainingDuration = remainingDuration - warmup.duration;
 
-            if (newRemainingDuration === 0) {
-                // add the warmup to the activity
-                const finalResult = [];
-                finalResult.push(warmup);
-                finalResult.push(outing[0]);
-                // return
-                saveAndReturnOuting(req, res, finalResult, stepIds);
-            } else {
-                completeOuting(req, res, warmup, outing, newRemainingDuration, stepIds);
-            }
-        });
+        if (newRemainingDuration === 0) {
+            // add the warmup to the activity
+            const finalResult = [];
+            finalResult.push(warmup);
+            finalResult.push(outing[0]);
+            // return
+            saveAndReturnOuting(req, res, finalResult, stepIds);
+        } else {
+            completeOuting(req, res, warmup, outing, newRemainingDuration, stepIds);
+        }
+    });
 };
 
 /*
 This function is called when an outing is requested. It pulls the MAIN outing event from the
-database, which currently is calculated based on the user's duration and location. It then calls
-getWarmup (if the duration is not already filled) to continue to populate the outing.
+database, which currently is calculated based on the input duration. The MAIN outing event will
+take up at least half the time in the outing. It then calls getWarmup (if the duration is not
+already filled) to continue to populate the outing.
 */
 export const initiateOuting = (req, res) => {
     const duration = req.query.duration;
@@ -257,18 +331,18 @@ export const initiateOuting = (req, res) => {
     }
     // find significant outing (i.e. at least half time of outing)
     stepQuery.exec((err, steps) => {
-            // Randomly pull outing from array
-            const arrayLength = steps.length;
-            const step = steps[Math.floor(Math.random() * arrayLength)];
-            outing.push(step);
-            stepIds.push(step._id);
-            const newRemainingDuration = req.query.duration - step.duration;
-            if (newRemainingDuration === 0) {
-                saveAndReturnOuting(req, res, outing, stepIds);
-            } else {
-                getWarmup(req, res, outing, newRemainingDuration, stepIds);
-            }
-        });
+        // Randomly pull outing from array
+        const arrayLength = steps.length;
+        const step = steps[Math.floor(Math.random() * arrayLength)];
+        outing.push(step);
+        stepIds.push(step._id);
+        const newRemainingDuration = req.query.duration - step.duration;
+        if (newRemainingDuration === 0) {
+            saveAndReturnOuting(req, res, outing, stepIds);
+        } else {
+            getWarmup(req, res, outing, newRemainingDuration, stepIds);
+        }
+    });
 };
 
 /*

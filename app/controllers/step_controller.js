@@ -9,6 +9,7 @@ and stores this step in the Mongo database.
 export const createStep = (req, res) => {
     const step = new Step();
 
+    step.active = req.query.active || 0;
     step.author = req.user._id;
     step.description = req.query.description;
     step.duration = req.query.duration;
