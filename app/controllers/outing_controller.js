@@ -32,69 +32,6 @@ export const getRandomStep = (req, res) => {
         });
 };
 
-// function to optimize route using Routific API.
-// export const optimizeRouteRoutific = (req, res, outing) => {
-//     const data = {};
-//     const visits = {};
-
-//     data.visits = visits;
-
-//     for (let i = 0; i < outing.length; i++) {
-//         const stepLocation = {
-//             location: {
-//                 name: outing[i].title,
-//                 lat: outing[i].lat,
-//                 lng: outing[i].lng,
-//             },
-//         };
-//         data.visits[outing[i]._id] = stepLocation;
-//     }
-
-//     data.fleet = {
-//         vehicle_1: {
-//             start_location: {
-//                 id: 'initialLocation',
-//                 name: 'Baker Berry',
-//                 lat: 43.705267,
-//                 lng: -72.288719,
-//             },
-//         },
-//     };
-
-//     const options = {
-//         url: 'https://api.routific.com/v1/vrp',
-//         json: data,
-//         headers: {
-//             Authorization: `bearer ${process.env.ROUTIFIC_KEY}`,
-//         },
-//     };
-//     function callback(error, response, body) {
-//         if (!error && response.statusCode == 200) {
-//             const lookup = {};
-//             for (let j = 0; j < outing.length; j++) {
-//                 lookup[outing[j]._id] = outing[j];
-//             }
-//             const finalResult = [];
-
-//             const solution = body.solution;
-//             const route = solution.vehicle_1;
-
-//             // NOTE: Starting at 1 because initial location is start location
-//             for (let k = 1; k < route.length; k++) {
-//                 const nextId = route[k].location_id;
-//                 finalResult.push(lookup[nextId]);
-//             }
-//             res.json({
-//                 detailedSteps: finalResult,
-//             });
-//         } else {
-//             // ... Handle error
-//             res.send(error);
-//         }
-//     }
-//     request.post(options, callback);
-// };
-
 /*
 This function saves the generated outing to the outings collection and calls
 a function to save the generated outing to the user's currentOuting field.
@@ -218,9 +155,19 @@ export const completeOuting = (req, res, warmup, outing, remainingDuration, step
             warmup: 0,
         };
 
-        Step
-            .find(query).where('duration').lte(remainingDuration).
-            exec((err, steps) => {
+        if (req.query.active === 0) {
+            query.active = { $in: [0, 1] };
+        }
+
+        const stepQuery = Step.find(query).where('duration').lte(remainingDuration);
+
+        if (req.query.active) {
+            if (req.query.active === 0) {
+                stepQuery.where('active', 0);
+            }
+        }
+
+        stepQuery.exec((err, steps) => {
                 const arrayLength = steps.length;
                 const step = steps[Math.floor(Math.random() * arrayLength)];
                 outing.push(step);
@@ -255,10 +202,16 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds) => {
         warmup: 1,
     };
 
+    const warmupQuery = Step.find(query);
+
+    if (req.query.active) {
+        if (req.query.active === 0) {
+            warmupQuery.where('active', 0);
+        }
+    }
+
     // get all results, then index randomly into array
-    Step
-        .find(query).
-        exec((err, steps) => {
+    warmupQuery.exec((err, steps) => {
             const arrayLength = steps.length;
             const warmup = steps[Math.floor(Math.random() * arrayLength)];
 
@@ -287,15 +240,23 @@ getWarmup (if the duration is not already filled) to continue to populate the ou
 export const initiateOuting = (req, res) => {
     const duration = req.query.duration;
 
-    // TODO: will need to change this when an activity doesn't have unlimited participants
+    // TODO: will need to account for participants if an activity is added that doesn't have unlimited participants
     const halfDuration = Math.ceil(duration / 2);
     const outing = [];
     const stepIds = [];
 
+    const stepQuery = Step.find({ duration: halfDuration, warmup: 0 });
+
+    // Activity must not exceed walking if user specifies nonactive, and must include some activity if user specifies active.
+    if (req.query.active) {
+        if (req.query.active === 0) {
+            stepQuery.where('active').lte(1);
+        } else {
+            stepQuery.where('active').gt(0);
+        }
+    }
     // find significant outing (i.e. at least half time of outing)
-    Step
-        .find({ duration: halfDuration, warmup: 0 }).
-        exec((err, steps) => {
+    stepQuery.exec((err, steps) => {
             // Randomly pull outing from array
             const arrayLength = steps.length;
             const step = steps[Math.floor(Math.random() * arrayLength)];
