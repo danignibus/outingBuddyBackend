@@ -13,7 +13,6 @@ describe('step', function() {
         	description: 'Test description',
         	duration: 6,
         });
-
         step.validate(function(err) {
             expect(err.errors.title).to.exist;
             done();

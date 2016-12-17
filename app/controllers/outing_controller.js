@@ -96,6 +96,20 @@ export const getRandomStep = (req, res) => {
 // };
 
 /*
+This function validates the request from the client and returns errors if any
+parameters are incorrectly formatted or missing. If no errors, it calls initiateOuting.
+*/
+export const validateOutingRequest = (req, res) => {
+    if (!req.query.duration) {
+        return res.status(400).send('Duration not specified');
+    } else if (req.query.duration > 6 || req.query.duration % 1 !== 0) {
+        return res.status(400).send('Incorrect duration syntax');
+    } else {
+        initiateOuting(req, res);
+    }
+};
+
+/*
 This function saves the generated outing to the outings collection and calls
 a function to save the generated outing to the user's currentOuting field.
 */
@@ -200,7 +214,7 @@ This function fills in the remainder of the outing, based on the duration and lo
 the main step and the warmup.
 */
 export const completeOuting = (req, res, warmup, outing, remainingDuration, stepIds) => {
-    // get desired radius from client
+    // get acceptable travel radius from client
     // NOTE: must have enough populated outings for small radii to work!
     let miles;
     if (req.query.radius) {
@@ -241,6 +255,7 @@ export const completeOuting = (req, res, warmup, outing, remainingDuration, step
         }
 
         stepQuery.exec((err, steps) => {
+            // TODO (potentially): if steps returned is equal to 0, query around home's coordinates (rather than main activity's coordinates)
             const arrayLength = steps.length;
             const step = steps[Math.floor(Math.random() * arrayLength)];
             outing.push(step);
@@ -321,7 +336,7 @@ export const initiateOuting = (req, res) => {
 
     const stepQuery = Step.find({ duration: halfDuration, warmup: 0 });
 
-    // Activity must not exceed walking if user specifies nonactive, and must include some activity if user specifies active.
+    // Activity level must not exceed walking if user specifies nonactive, and must include some activity if user specifies active.
     if (req.query.active) {
         if (req.query.active === 0) {
             stepQuery.where('active').lte(1);
@@ -331,6 +346,11 @@ export const initiateOuting = (req, res) => {
     }
     // find significant outing (i.e. at least half time of outing)
     stepQuery.exec((err, steps) => {
+        if (steps.length === 0 && req.query.active) {
+            return res.status(404).send('Activities satisfying parameters not found in area; try removing active param?');
+        } else if (steps.length === 0) {
+            return res.status(404).send('Activities not found in area');
+        }
         // Randomly pull outing from array
         const arrayLength = steps.length;
         const step = steps[Math.floor(Math.random() * arrayLength)];
@@ -488,7 +508,7 @@ export const handleOutingRequest = (req, res) => {
     if (req.query.outingId && req.query.skip) {
         skipStep(req, res);
     } else {
-        initiateOuting(req, res);
+        validateOutingRequest(req, res);
     }
 };
 
