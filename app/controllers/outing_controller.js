@@ -229,6 +229,7 @@ export const completeOuting = (req, res, warmup, outing, remainingDuration, step
     } else if (remainingDuration > 0) {
         const jsonObject = outing[0].toJSON();
 
+        console.log('json object coordinates' + jsonObject.loc.coordinates);
         // query for steps within a given radius and that have not already been added to the outing
         const query = {
             loc: {
@@ -322,19 +323,45 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds) => {
 
 /*
 This function is called when an outing is requested. It pulls the MAIN outing event from the
-database, which currently is calculated based on the input duration. The MAIN outing event will
-take up at least half the time in the outing. It then calls getWarmup (if the duration is not
-already filled) to continue to populate the outing.
+database, which currently is calculated based on the input duration and location. The MAIN outing
+event will take up at least half the time in the outing. It then calls getWarmup (if the duration 
+is not already filled) to continue to populate the outing.
 */
 export const initiateOuting = (req, res) => {
     const duration = req.query.duration;
 
-    // TODO: will need to account for participants if an activity is added that doesn't have unlimited participants
     const halfDuration = Math.ceil(duration / 2);
     const outing = [];
     const stepIds = [];
 
-    const stepQuery = Step.find({ duration: halfDuration, warmup: 0 });
+    // If user has specified miles, account for them. Otherwise, assume everything should be in walking distance.
+    // TODO: change walking distance radius to 1, once we have added enough activities.
+    let miles;
+    if (req.query.radius) {
+        miles = req.query.radius;
+    } else {
+        miles = 3;
+    }
+    const radiusInRadians = miles / 3959;
+
+    // Default initial location is the Green
+    let initialLocationCoordinates;
+    if (req.query.lat && req.query.lng) {
+        initialLocationCoordinates = [req.query.lng, req.query.lat];
+    } else {
+        initialLocationCoordinates = [-72.288719, 43.705267];
+    }
+
+    const query = {
+        loc: {
+            $geoWithin: {
+                $centerSphere: [initialLocationCoordinates, radiusInRadians],
+            },
+        },
+        duration: halfDuration,
+        warmup: 0,
+    };
+    const stepQuery = Step.find(query);
 
     // Activity level must not exceed walking if user specifies nonactive, and must include some activity if user specifies active.
     if (req.query.active) {
@@ -348,9 +375,12 @@ export const initiateOuting = (req, res) => {
     stepQuery.exec((err, steps) => {
         if (steps.length === 0 && req.query.active) {
             return res.status(404).send('Activities satisfying parameters not found in area; try removing active param?');
+        } else if (steps.length === 0 && req.query.radius) {
+            return res.status(404).send('Activities satisfying parameters not found in area; try increasing radius?');
         } else if (steps.length === 0) {
             return res.status(404).send('Activities not found in area');
         }
+
         // Randomly pull outing from array
         const arrayLength = steps.length;
         const step = steps[Math.floor(Math.random() * arrayLength)];
