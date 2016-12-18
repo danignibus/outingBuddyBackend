@@ -5,6 +5,7 @@ const ReflectionSchema = new Schema({
     author: { type: Schema.Types.ObjectId, ref: 'User' },
     entry: String,
     outingId: String,
+    rating: Number,
 });
 
 // create model class

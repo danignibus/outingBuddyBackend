@@ -4,6 +4,8 @@ import mongoose, { Schema } from 'mongoose';
 const OutingSchema = new Schema({
     detailedSteps: [],
     stepIds: [],
+    rating: Number,
+    raters: Number,
 });
 
 // create model class

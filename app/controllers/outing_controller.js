@@ -32,68 +32,43 @@ export const getRandomStep = (req, res) => {
         });
 };
 
-// function to optimize route using Routific API.
-// export const optimizeRouteRoutific = (req, res, outing) => {
-//     const data = {};
-//     const visits = {};
+/*
+This function, given a user's input rating of an outing, updates the outing's rating
+to account for the new submission.
 
-//     data.visits = visits;
+TODO: Doesn't currently check whether the user has already rated the outing, so technically
+the user could submit several ratings for the same outing (fix).
+*/
+export const updateOutingRating = (outingId, rating) => {
+    Outing.findOne({ _id: outingId }).exec((err, outing) => {
+        let currentAverage, currentDistribution;
+        if (outing.rating) {
+            currentAverage = parseInt(outing.rating);
+        } else {
+            currentAverage = 0;
+        }
+        if (outing.raters) {
+            currentDistribution = parseInt(outing.raters);
+        } else {
+            currentDistribution = 0;
+        }
 
-//     for (let i = 0; i < outing.length; i++) {
-//         const stepLocation = {
-//             location: {
-//                 name: outing[i].title,
-//                 lat: outing[i].lat,
-//                 lng: outing[i].lng,
-//             },
-//         };
-//         data.visits[outing[i]._id] = stepLocation;
-//     }
+        const newAverageNumerator = parseInt(currentAverage) * parseInt(currentDistribution) + parseInt(rating);
+        const newAverageDenominator = parseInt(currentDistribution) + 1;
+        const newAverage = newAverageNumerator * 1.0 / newAverageDenominator;
 
-//     data.fleet = {
-//         vehicle_1: {
-//             start_location: {
-//                 id: 'initialLocation',
-//                 name: 'Baker Berry',
-//                 lat: 43.705267,
-//                 lng: -72.288719,
-//             },
-//         },
-//     };
-
-//     const options = {
-//         url: 'https://api.routific.com/v1/vrp',
-//         json: data,
-//         headers: {
-//             Authorization: `bearer ${process.env.ROUTIFIC_KEY}`,
-//         },
-//     };
-//     function callback(error, response, body) {
-//         if (!error && response.statusCode == 200) {
-//             const lookup = {};
-//             for (let j = 0; j < outing.length; j++) {
-//                 lookup[outing[j]._id] = outing[j];
-//             }
-//             const finalResult = [];
-
-//             const solution = body.solution;
-//             const route = solution.vehicle_1;
-
-//             // NOTE: Starting at 1 because initial location is start location
-//             for (let k = 1; k < route.length; k++) {
-//                 const nextId = route[k].location_id;
-//                 finalResult.push(lookup[nextId]);
-//             }
-//             res.json({
-//                 detailedSteps: finalResult,
-//             });
-//         } else {
-//             // ... Handle error
-//             res.send(error);
-//         }
-//     }
-//     request.post(options, callback);
-// };
+        Outing.findOneAndUpdate(
+            { _id: outingId },
+            { $set: { rating: newAverage, raters: newAverageDenominator },
+            },
+            (error, outing) => {
+                if (error) {
+                    // TODO: fix error
+                    console.log('error updating outing with new rating');
+                }
+            });
+    });
+};
 
 /*
 This function validates the request from the client and returns errors if any
@@ -229,7 +204,6 @@ export const completeOuting = (req, res, warmup, outing, remainingDuration, step
     } else if (remainingDuration > 0) {
         const jsonObject = outing[0].toJSON();
 
-        console.log('json object coordinates' + jsonObject.loc.coordinates);
         // query for steps within a given radius and that have not already been added to the outing
         const query = {
             loc: {
@@ -324,7 +298,7 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds) => {
 /*
 This function is called when an outing is requested. It pulls the MAIN outing event from the
 database, which currently is calculated based on the input duration and location. The MAIN outing
-event will take up at least half the time in the outing. It then calls getWarmup (if the duration 
+event will take up at least half the time in the outing. It then calls getWarmup (if the duration
 is not already filled) to continue to populate the outing.
 */
 export const initiateOuting = (req, res) => {
@@ -373,14 +347,13 @@ export const initiateOuting = (req, res) => {
     }
     // find significant outing (i.e. at least half time of outing)
     stepQuery.exec((err, steps) => {
-        if (steps.length === 0 && req.query.active) {
+        if ((steps === undefined || steps.length === 0) && req.query.active) {
             return res.status(404).send('Activities satisfying parameters not found in area; try removing active param?');
-        } else if (steps.length === 0 && req.query.radius) {
+        } else if ((steps === undefined || steps.length === 0) && req.query.radius) {
             return res.status(404).send('Activities satisfying parameters not found in area; try increasing radius?');
-        } else if (steps.length === 0) {
+        } else if (steps === undefined || steps.length === 0) {
             return res.status(404).send('Activities not found in area');
         }
-
         // Randomly pull outing from array
         const arrayLength = steps.length;
         const step = steps[Math.floor(Math.random() * arrayLength)];
