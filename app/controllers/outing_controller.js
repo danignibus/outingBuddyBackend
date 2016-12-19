@@ -98,6 +98,7 @@ export const saveAndReturnOuting = (req, res, detailedSteps, stepIds) => {
             const userId = req.user._id;
             UserController.saveCurrentOutingProgress(res, userId, result._id, 0);
             res.json({
+                outingId: result._id,
                 detailedSteps,
             });
         })
@@ -443,63 +444,43 @@ export const skipStep = (req, res) => {
         const offendingStep = results[0];
         const currentOuting = results[1];
         const currentOutingSteps = currentOuting.detailedSteps;
+
+        // TODO: Change this to .5 once we have sufficient number of outings.
         const miles = 5;
         const radiusInRadians = miles / 3959;
 
+        const query = {
+            loc: {
+                $geoWithin: {
+                    $centerSphere: [offendingStep.loc.coordinates, radiusInRadians],
+                },
+            },
+            _id: {
+                $nin: currentOuting.stepIds,
+            },
+            duration: offendingStep.duration,
+        };
+
+        const skipStepQuery = Step.find(query);
+
         if (offendingStep.warmup === 1) {
-            // query on currentOuting[1] because the main event will be the second item in the array
-            const query = {
-                loc: {
-                    $geoWithin: {
-                        $centerSphere: [currentOutingSteps[1].loc.coordinates, radiusInRadians],
-                    },
-                },
-                _id: {
-                    $nin: currentOuting.stepIds,
-                },
-                warmup: 1,
-            };
-
-            Step
-                .find(query).
-                exec((err, steps) => {
-                    if (steps.length === 0) {
-                        return res.status(404).send('Alternate steps not found');
-                    }
-                    const arrayLength = steps.length;
-                    const warmup = steps[Math.floor(Math.random() * arrayLength)];
-
-                    updateOuting(req, res, currentOuting, currentOutingSteps, offendingStep, warmup);
-                    res.send(warmup);
-                });
+            skipStepQuery.where('warmup', 1);
         } else {
-            // If offendingStep is not a warmup, query DB for another activity in the area that is same duration
-            const query = {
-                loc: {
-                    $geoWithin: {
-                        $centerSphere: [currentOutingSteps[1].loc.coordinates, radiusInRadians],
-                    },
-                },
-                _id: {
-                    $nin: currentOuting.stepIds,
-                },
-                warmup: 0,
-                duration: offendingStep.duration,
-            };
-
-            Step
-                .find(query).
-                exec((err, steps) => {
-                    if (steps.length === 0) {
-                        return res.status(404).send('Alternate steps not found');
-                    }
-                    const arrayLength = steps.length;
-                    const newStep = steps[Math.floor(Math.random() * arrayLength)];
-
-                    updateOuting(req, res, currentOuting, currentOutingSteps, offendingStep, newStep);
-                    res.send(newStep);
-                });
+            skipStepQuery.where('warmup', 0);
         }
+
+        Step
+            .find(query).
+            exec((err, steps) => {
+                if (steps.length === 0) {
+                    return res.status(404).send('Alternate steps not found');
+                }
+                const arrayLength = steps.length;
+                const newStep = steps[Math.floor(Math.random() * arrayLength)];
+
+                updateOuting(req, res, currentOuting, currentOutingSteps, offendingStep, newStep);
+                res.send(newStep);
+            });
     });
 };
 
