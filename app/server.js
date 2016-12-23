@@ -2,8 +2,10 @@ import apiRouter from './router';
 import express from 'express';
 import mongoose from 'mongoose';
 
+import User from './models/user_model';
+
 require('babel-register')({
-   presets: [ 'es2015' ]
+    presets: ['es2015'],
 });
 
 const http = require('http');
@@ -74,6 +76,41 @@ controller.setupWebserver(port, function (err, webserver) {
         //     res.send('Reminder page');
         // });
 
+        // When inviting friends, if they are not already in the user DB the application will send them a text inviting them
+        // to download the app.
+        webserver.get('/invite', (req, res) => {
+
+            if (!req.query.phoneNumber) {
+                return res.status(400).send('Invitee not specified');
+            } else {
+                User.findOne({ phoneNumber: req.query.phoneNumber }).exec((err, user) => {
+                    if (err) {
+                        return res.send();
+                    }
+                    if (user === null) {
+                        // Note: Assuming all country codes will be 1 for now
+                        const formattedPhoneNumber = `+1${req.query.phoneNumber}`;
+                        const message = {
+                            from: '+14082146413',
+                            to: formattedPhoneNumber,
+                            user: formattedPhoneNumber,
+                            channel: formattedPhoneNumber,
+                        };
+                        bot.startConversation(message, (err, convo) => {
+                            if (err) {
+                                console.log(err);
+                            }
+                            // TODO: Add link once we get TestFlight working
+                            convo.say('You have been added to an outing on OutingBuddy! Click here to download the app and follow along:');
+                            convo.next();
+                        });
+                        res.send('Invited new user');
+                    } else {
+                        res.send('User already in DB');
+                    }
+                });
+            }
+        });
     });
 });
 
