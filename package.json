@@ -30,7 +30,7 @@
     "passport": "^0.3.2",
     "passport-jwt": "^2.2.1",
     "passport-local": "^1.0.0",
-    "request": "^2.76.0",
+    "request": "^2.79.0",
     "routific": "0.0.2",
     "sinon": "^1.17.6",
     "sinon-express-mock": "^1.2.4"

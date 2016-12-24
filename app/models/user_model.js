@@ -10,7 +10,7 @@ const UserSchema = new Schema({
     lastPrompted: Date,
     outings: [],
     password: String,
-    phoneNumber: String,
+    phoneNumber: { type: String, required: true },
 });
 
 UserSchema.set('toJSON', {

@@ -97,6 +97,7 @@ export const saveAndReturnOuting = (req, res, detailedSteps, stepIds) => {
         .then(result => {
             const userId = req.user._id;
             UserController.saveCurrentOutingProgress(res, userId, result._id, 0);
+            UserController.inviteFriends(req, res);
             res.json({
                 outingId: result._id,
                 detailedSteps,

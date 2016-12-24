@@ -3,6 +3,8 @@ import jwt from 'jwt-simple';
 import dotenv from 'dotenv';
 dotenv.config({ silent: true });
 
+const http = require('http');
+
 function tokenForUser(user) {
     const timestamp = new Date().getTime();
     return jwt.encode({ sub: user.id, iat: timestamp }, process.env.API_SECRET);
@@ -27,6 +29,31 @@ This function gets all users.
 */
 export const getUsers = (callback) => {
     User.find().exec(callback);
+};
+
+/*
+This function is called when an outing is created. It invites any friends who are participating in
+the outing but whose phone numbers are not currently registered with the app to download the app by
+sending them a link.
+*/
+export const inviteFriends = (req, res) => {
+    // get user with that phone number, update lastPrompted to current time
+
+    if (req.query.invited) {
+        // Go through each phone number and see if they are in the DB
+        const invited = req.query.invited;
+        for (const invitee in invited) {
+            User.findOne({ phoneNumber: invited[invitee] }).exec((err, user) => {
+                if (err) {
+                    return res.send();
+                }
+                if (user === null) {
+                    // Make request to /invite for that user
+                    http.get(`${process.env.HEROKU_APP}/invite?phoneNumber=${invited[invitee]}`);
+                }
+            });
+        }
+    }
 };
 
 /*
