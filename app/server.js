@@ -91,7 +91,7 @@ controller.setupWebserver(port, function (err, webserver) {
                         // Note: Assuming all country codes will be 1 for now
                         const formattedPhoneNumber = `+1${req.query.phoneNumber}`;
                         const message = {
-                            from: '+14082146413',
+                            from: process.env.TWILIO_NUMBER,
                             to: formattedPhoneNumber,
                             user: formattedPhoneNumber,
                             channel: formattedPhoneNumber,
