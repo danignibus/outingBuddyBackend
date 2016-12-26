@@ -35,6 +35,43 @@ export const getRandomStep = (req, res) => {
 };
 
 /*
+This function stores a series of steps created by the user as one complete outing. Note:
+does not verify that each individual step was created by the user who is submitting the outing
+(because I think it's okay for a user to pick from currently available steps), but we may want
+to think about this in the future.
+
+In order for a user to submit a full outing, they will first need to submit each individual step.
+*/
+export const submitOuting = (req, res) => {
+    const steps = req.query.orderedSteps;
+    const detailedSteps = [];
+
+    const promises = [];
+
+    for (const step in steps) {
+        promises.push(Step.findOne({ _id: steps[step] }));
+    }
+
+    Promise.all(promises).then(function(stepsArray) {
+        stepsArray.forEach(function(step) {
+            detailedSteps.push(step);
+        });
+        const outing = new Outing();
+        outing.author = req.user._id;
+        outing.detailedSteps = detailedSteps;
+        outing.stepIds = req.query.orderedSteps;
+
+        outing.save()
+            .then(result => {
+                res.status(200).send('Successfully submitted outing');
+            })
+        .catch(error => {
+            res.send(error);
+        });
+    });
+};
+
+/*
 This function, given a user's input rating of an outing, updates the outing's rating
 to account for the new submission.
 
