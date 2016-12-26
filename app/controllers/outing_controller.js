@@ -4,9 +4,11 @@ import async from 'async';
 import request from 'request';
 import Outing from '../models/outing_model';
 import Step from '../models/step_model';
-const UserController = require('../controllers/user_controller');
 import dotenv from 'dotenv';
 dotenv.config({ silent: true });
+
+const NotFoundError = require('../errors/not_found_error');
+const UserController = require('../controllers/user_controller');
 
 /*
 This function returns all outings in the database.
@@ -39,8 +41,20 @@ to account for the new submission.
 TODO: Doesn't currently check whether the user has already rated the outing, so technically
 the user could submit several ratings for the same outing (fix).
 */
-export const updateOutingRating = (outingId, rating) => {
+export const updateOutingRating = (outingId, rating, res) => {
     Outing.findOne({ _id: outingId }).exec((err, outing) => {
+        console.log('outing' + outing);
+
+        // if (err) {
+        //     throw new Error('Error finding outing; check outing ID');
+        // }
+        if (outing === undefined || outing === null) {
+            // TODO: throw new NotFoundError('Error finding outing; check outing ID');
+            return res.status(404).send('Outing not found; check outing ID');
+        }
+        if (err) {
+            throw err;
+        }
         let currentAverage, currentDistribution;
         if (outing.rating) {
             currentAverage = parseInt(outing.rating);
@@ -63,8 +77,8 @@ export const updateOutingRating = (outingId, rating) => {
             },
             (error, outing) => {
                 if (error) {
-                    // TODO: fix error
-                    console.log('error updating outing with new rating');
+                    res.status(404).send('Error updating item with new rating');
+                    // TODO: throw new NotFoundError('Error updating outing with new rating');
                 }
             });
     });

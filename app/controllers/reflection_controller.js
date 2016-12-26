@@ -1,9 +1,10 @@
+import async from 'async';
 import Reflection from '../models/reflection_model';
 import dotenv from 'dotenv';
 dotenv.config({ silent: true });
 const OutingController = require('../controllers/outing_controller');
 const UserController = require('../controllers/user_controller');
-
+const NotFoundError = require('../errors/not_found_error');
 
 /*
 This function receives a reflection entry and outing ID from the client
@@ -29,10 +30,16 @@ export const addReflection = (req, res) => {
         .then(result => {
             // update user's outings with the completed outing Id and the returned reflection Id
             UserController.updateCompletedOutings(req.user._id, result._id, req.query.outingId);
-            OutingController.updateOutingRating(req.query.outingId, req.query.rating);
+            OutingController.updateOutingRating(req.query.outingId, req.query.rating, res);
             res.send(result);
-        })
-    .catch(error => {
-        res.send(error);
-    });
+        }).catch(error => {
+            res.send(error);
+            // TODO: figure out NotFoundError
+            // if (error instanceof NotFoundError) {
+            //     console.log('error instanceof!!');
+            //     res.status(404).send(error.message);
+            // } else {
+            //     res.send(error);
+            // }
+        });
 };
