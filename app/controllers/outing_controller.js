@@ -7,7 +7,6 @@ import Step from '../models/step_model';
 import dotenv from 'dotenv';
 dotenv.config({ silent: true });
 
-const NotFoundError = require('../errors/not_found_error');
 const UserController = require('../controllers/user_controller');
 
 /*
@@ -78,47 +77,45 @@ to account for the new submission.
 TODO: Doesn't currently check whether the user has already rated the outing, so technically
 the user could submit several ratings for the same outing (fix).
 */
-export const updateOutingRating = (outingId, rating, res) => {
-    Outing.findOne({ _id: outingId }).exec((err, outing) => {
-        console.log('outing' + outing);
-
-        // if (err) {
-        //     throw new Error('Error finding outing; check outing ID');
-        // }
-        if (outing === undefined || outing === null) {
-            // TODO: throw new NotFoundError('Error finding outing; check outing ID');
-            return res.status(404).send('Outing not found; check outing ID');
-        }
-        if (err) {
-            throw err;
-        }
-        let currentAverage, currentDistribution;
-        if (outing.rating) {
-            currentAverage = parseInt(outing.rating);
-        } else {
-            currentAverage = 0;
-        }
-        if (outing.raters) {
-            currentDistribution = parseInt(outing.raters);
-        } else {
-            currentDistribution = 0;
-        }
-
-        const newAverageNumerator = parseInt(currentAverage) * parseInt(currentDistribution) + parseInt(rating);
-        const newAverageDenominator = parseInt(currentDistribution) + 1;
-        const newAverage = newAverageNumerator * 1.0 / newAverageDenominator;
-
-        Outing.findOneAndUpdate(
-            { _id: outingId },
-            { $set: { rating: newAverage, raters: newAverageDenominator },
-            },
-            (error, outing) => {
-                if (error) {
-                    res.status(404).send('Error updating item with new rating');
-                    // TODO: throw new NotFoundError('Error updating outing with new rating');
+export const updateOutingRating = (outingId, rating, res, callback) => {
+    if (rating === undefined) {
+        callback(200, 'Outing reflection saved without rating');
+    } else {
+        Outing.findOne({ _id: outingId }).exec((err, outing) => {
+            if (err) {
+                callback(404, 'Outing not found in DB; check outing ID');
+            } else {
+                let currentAverage;
+                let currentDistribution;
+                if (outing.rating) {
+                    currentAverage = parseInt(outing.rating);
+                } else {
+                    currentAverage = 0;
                 }
-            });
-    });
+                if (outing.raters) {
+                    currentDistribution = parseInt(outing.raters);
+                } else {
+                    currentDistribution = 0;
+                }
+
+                const newAverageNumerator = parseInt(currentAverage) * parseInt(currentDistribution) + parseInt(rating);
+                const newAverageDenominator = parseInt(currentDistribution) + 1;
+                const newAverage = newAverageNumerator * 1.0 / newAverageDenominator;
+
+                Outing.findOneAndUpdate(
+                    { _id: outingId },
+                    { $set: { rating: newAverage, raters: newAverageDenominator },
+                    },
+                    (error, outing) => {
+                        if (error) {
+                            callback(404, 'Error updating outing with new rating');
+                        } else {
+                            callback(200, 'Success updating outing');
+                        }
+                    });
+            }
+        });
+    }
 };
 
 /*

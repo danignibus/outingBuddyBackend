@@ -4,7 +4,6 @@ import dotenv from 'dotenv';
 dotenv.config({ silent: true });
 
 const http = require('http');
-const NotFoundError = require('../errors/not_found_error');
 
 function tokenForUser(user) {
     const timestamp = new Date().getTime();
@@ -159,10 +158,8 @@ export const updateCompletedOutings = (userId, reflectionId, outingId) => {
         { _id: userId },
         { $push: { outings: [outingId, reflectionId] } },
         (err, user) => {
-            console.log('user' + user);
             if (err) {
                 console.log('had an error');
-                // TODO: throw new NotFoundError('Error updating user completed outings');
             }
         });
 };

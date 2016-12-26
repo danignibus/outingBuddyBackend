@@ -4,7 +4,6 @@ import dotenv from 'dotenv';
 dotenv.config({ silent: true });
 const OutingController = require('../controllers/outing_controller');
 const UserController = require('../controllers/user_controller');
-const NotFoundError = require('../errors/not_found_error');
 
 /*
 This function receives a reflection entry and outing ID from the client
@@ -28,18 +27,19 @@ export const addReflection = (req, res) => {
 
     reflection.save()
         .then(result => {
-            // update user's outings with the completed outing Id and the returned reflection Id
-            UserController.updateCompletedOutings(req.user._id, result._id, req.query.outingId);
-            OutingController.updateOutingRating(req.query.outingId, req.query.rating, res);
-            res.send(result);
+            async.series([
+                function (callback) {
+                    OutingController.updateOutingRating(req.query.outingId, req.query.rating, res, function (status, message) {
+                        res.status(status).send(message);
+                        if (status === 200) {
+                            UserController.updateCompletedOutings(req.user._id, result._id, req.query.outingId);
+                        }
+                    });
+                    callback(null, 'one');
+                },
+
+            ]);
         }).catch(error => {
             res.send(error);
-            // TODO: figure out NotFoundError
-            // if (error instanceof NotFoundError) {
-            //     console.log('error instanceof!!');
-            //     res.status(404).send(error.message);
-            // } else {
-            //     res.send(error);
-            // }
         });
 };
