@@ -30,6 +30,7 @@ export const getConfigData = (req, res) => {
             return res.status(404).send(`This area may not yet be supported; no steps in a ${CONST.CONFIG_RADIUS} mile radius of current location`);
         } else {
             return res.status(200).send('Adequate steps in surrounding area.');
+            // TODO: Maybe check actual number of steps returned.
         }
     });
 };

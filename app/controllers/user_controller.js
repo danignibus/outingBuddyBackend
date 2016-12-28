@@ -130,21 +130,21 @@ export const getOutingProgress = (req, res, next) => {
 };
 
 /*
-This function gets all completed outing IDs and corresponding reflection
-IDs for a user.
+This function gets user name and profile picture, completed outing IDs and
+corresponding reflection IDs for a user.
 Note: this is a work in progress; we need to determine what should be displayed
-on the frontend. I'm leaning toward title of outing and a snippet of the reflection.
+on the frontend. I'm leaning toward image of outing and a snippet of the reflection.
 Once we decide, I will modify the query accordingly.
 */
-export const getPastOutings = (req, res, next) => {
+export const getUserProfile = (req, res, next) => {
     User.findOne({ _id: req.user._id }).exec((err, user) => {
-        let outings;
-        if (typeof user.outings === 'undefined') {
-            outings = null;
-        } else {
-            outings = user.outings;
-        }
+        const name = user.name ? user.name : null;
+        const outings = user.outings ? user.outings : null;
+        const image = user.image ? user.image : null;
+
         res.json({
+            name,
+            image,
             outings,
         });
     });
@@ -179,6 +179,7 @@ Otherwise, it returns an error.
 export const signup = (req, res, next) => {
     const phoneNumber = req.query.phoneNumber;
     const password = req.query.password;
+    const name = req.query.name;
 
     if (!phoneNumber || !password) {
         return res.status(422).send('You must provide phone number and password');
@@ -194,6 +195,7 @@ export const signup = (req, res, next) => {
     User.findOne({ phoneNumber }).exec((err, obj) => {
         if (obj == null) {
             const user = new User();
+            user.name = name;
             user.phoneNumber = phoneNumber;
             user.password = password;
 

@@ -46,6 +46,6 @@ router.route('/user')
 	.post(requireAuth, Users.updateUser);
 
 router.route('/user/history')
-	.get(requireAuth, Users.getPastOutings);
+	.get(requireAuth, Users.getUserProfile);
 
 export default router;

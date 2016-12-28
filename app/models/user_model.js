@@ -4,10 +4,11 @@ import bcrypt from 'bcrypt-nodejs';
 // create a schema for outings/description
 const UserSchema = new Schema({
     currentOuting: [],
-    name: String,
     group: String,
+    image: String,
     journals: [],
     lastPrompted: Date,
+    name: String,
     outings: [],
     password: String,
     phoneNumber: { type: String, required: true },
