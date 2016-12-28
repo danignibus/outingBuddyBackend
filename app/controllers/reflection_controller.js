@@ -1,4 +1,3 @@
-import async from 'async';
 import Reflection from '../models/reflection_model';
 import dotenv from 'dotenv';
 dotenv.config({ silent: true });
@@ -27,18 +26,12 @@ export const addReflection = (req, res) => {
 
     reflection.save()
         .then(result => {
-            async.series([
-                function (callback) {
-                    OutingController.updateOutingRating(req.query.outingId, req.query.rating, res, function (status, message) {
-                        res.status(status).send(message);
-                        if (status === 200) {
-                            UserController.updateCompletedOutings(req.user._id, result._id, req.query.outingId);
-                        }
-                    });
-                    callback(null, 'one');
-                },
-
-            ]);
+            OutingController.updateOutingRating(req.query.outingId, req.query.rating, res, function (status, message) {
+                res.status(status).send(message);
+                if (status === 200) {
+                    UserController.updateCompletedOutings(req.user._id, result._id, req.query.outingId);
+                }
+            });
         }).catch(error => {
             res.send(error);
         });

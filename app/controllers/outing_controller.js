@@ -78,44 +78,43 @@ TODO: Doesn't currently check whether the user has already rated the outing, so 
 the user could submit several ratings for the same outing (fix).
 */
 export const updateOutingRating = (outingId, rating, res, callback) => {
-    if (rating === undefined) {
-        callback(200, 'Outing reflection saved without rating');
-    } else {
-        Outing.findOne({ _id: outingId }).exec((err, outing) => {
-            if (err) {
-                callback(404, 'Outing not found in DB; check outing ID');
+    Outing.findOne({ _id: outingId }).exec((err, outing) => {
+        if (err) {
+            callback(404, 'Outing not found in DB; check outing ID');
+        } else if (rating === undefined) {
+            // just save outing reflection
+            callback(200, 'Outing reflection saved without rating');
+        } else {
+            let currentAverage;
+            let currentDistribution;
+            if (outing.rating) {
+                currentAverage = parseInt(outing.rating);
             } else {
-                let currentAverage;
-                let currentDistribution;
-                if (outing.rating) {
-                    currentAverage = parseInt(outing.rating);
-                } else {
-                    currentAverage = 0;
-                }
-                if (outing.raters) {
-                    currentDistribution = parseInt(outing.raters);
-                } else {
-                    currentDistribution = 0;
-                }
-
-                const newAverageNumerator = parseInt(currentAverage) * parseInt(currentDistribution) + parseInt(rating);
-                const newAverageDenominator = parseInt(currentDistribution) + 1;
-                const newAverage = newAverageNumerator * 1.0 / newAverageDenominator;
-
-                Outing.findOneAndUpdate(
-                    { _id: outingId },
-                    { $set: { rating: newAverage, raters: newAverageDenominator },
-                    },
-                    (error, outing) => {
-                        if (error) {
-                            callback(404, 'Error updating outing with new rating');
-                        } else {
-                            callback(200, 'Success updating outing');
-                        }
-                    });
+                currentAverage = 0;
             }
-        });
-    }
+            if (outing.raters) {
+                currentDistribution = parseInt(outing.raters);
+            } else {
+                currentDistribution = 0;
+            }
+
+            const newAverageNumerator = parseInt(currentAverage) * parseInt(currentDistribution) + parseInt(rating);
+            const newAverageDenominator = parseInt(currentDistribution) + 1;
+            const newAverage = newAverageNumerator * 1.0 / newAverageDenominator;
+
+            Outing.findOneAndUpdate(
+                { _id: outingId },
+                { $set: { rating: newAverage, raters: newAverageDenominator },
+                },
+                (error, outing) => {
+                    if (error) {
+                        callback(404, 'Error updating outing with new rating');
+                    } else {
+                        callback(200, 'Success updating outing with rating and reflection');
+                    }
+                });
+        }
+    });
 };
 
 /*
