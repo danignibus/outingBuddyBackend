@@ -151,15 +151,27 @@ export const getUserProfile = (req, res, next) => {
 };
 
 /*
-Updates user's outings to include additonal outing Id and corresponding journal id.
+Adds object to user's outings array with the outing ID, reflection ID, user's rating,
+and an image of the outing.
 */
-export const updateCompletedOutings = (userId, reflectionId, outingId) => {
+export const updateCompletedOutings = (userId, reflectionId, rating, outing) => {
+    const outingSteps = outing.detailedSteps;
+    const outingStepLength = outingSteps.length;
+    const randomStep = outingSteps[Math.floor(Math.random() * outingStepLength)];
+    const outingImage = randomStep.image || null;
+    const userRating = rating || null;
+
     User.findOneAndUpdate(
         { _id: userId },
-        { $push: { outings: [outingId, reflectionId] } },
+        { $push: { outings: {
+            outingId: outing._id,
+            reflectionId,
+            userRating,
+            outingImage },
+        } },
         (err, user) => {
             if (err) {
-                console.log('had an error');
+                console.log('Error updating completed outings for user');
             }
         });
 };

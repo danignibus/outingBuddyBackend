@@ -26,10 +26,10 @@ export const addReflection = (req, res) => {
 
     reflection.save()
         .then(result => {
-            OutingController.updateOutingRating(req.query.outingId, req.query.rating, res, function (status, message) {
+            OutingController.updateOutingRating(req.query.outingId, req.query.rating, res, function (status, message, outing) {
                 res.status(status).send(message);
                 if (status === 200) {
-                    UserController.updateCompletedOutings(req.user._id, result._id, req.query.outingId);
+                    UserController.updateCompletedOutings(req.user._id, result._id, req.query.rating, outing);
                 }
             });
         }).catch(error => {

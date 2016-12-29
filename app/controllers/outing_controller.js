@@ -83,7 +83,7 @@ export const updateOutingRating = (outingId, rating, res, callback) => {
             callback(404, 'Outing not found in DB; check outing ID');
         } else if (rating === undefined) {
             // just save outing reflection
-            callback(200, 'Outing reflection saved without rating');
+            callback(200, 'Outing reflection saved without rating', outing);
         } else {
             let currentAverage;
             let currentDistribution;
@@ -110,7 +110,7 @@ export const updateOutingRating = (outingId, rating, res, callback) => {
                     if (error) {
                         callback(404, 'Error updating outing with new rating');
                     } else {
-                        callback(200, 'Success updating outing with rating and reflection');
+                        callback(200, 'Success updating outing with rating and reflection', outing);
                     }
                 });
         }
