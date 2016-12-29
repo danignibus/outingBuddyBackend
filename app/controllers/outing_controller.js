@@ -42,6 +42,10 @@ to think about this in the future.
 In order for a user to submit a full outing, they will first need to submit each individual step.
 */
 export const submitOuting = (req, res) => {
+    if (!req.query.orderedSteps) {
+        res.status(400).send('No steps specified for outing');
+    }
+
     const steps = req.query.orderedSteps;
     const detailedSteps = [];
 
@@ -458,6 +462,22 @@ export const updateOuting = (req, res, currentOuting, detailedSteps, replacedSte
 };
 
 /*
+This function gets data from a specific outing. It is used when the client clicks on an outing on their profile
+to view the outing's specific details.
+*/
+export const getOutingData = (req, res) => {
+    Outing.findOne({ _id: req.query.outingId }).exec((err, outing) => {
+        if (err) {
+            res.status(404).send('No such outing in DB; check outing ID');
+        } else {
+            res.json({
+                outing,
+            });
+        }
+    });
+};
+
+/*
 This function queries the database for an alternate step in a generated outing. It returns an alternate step
 if one is available and otherwise returns a 404.
 */
@@ -539,6 +559,8 @@ which parameters are specified.
 export const handleOutingRequest = (req, res) => {
     if (req.query.outingId && req.query.skip) {
         skipStep(req, res);
+    } else if (req.query.outingId) {
+        getOutingData(req, res);
     } else {
         validateOutingRequest(req, res);
     }

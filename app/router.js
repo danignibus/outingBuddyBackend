@@ -39,7 +39,6 @@ router.route('/signup')
 router.route('/step')
 	.post(requireAuth, Steps.createStep);
 
-// example get from postman: http://localhost:9090/api/user
 // example post from postman: http://localhost:9090/api/user?outingId=5836092e061b4b1a1b2b85cf&currentStep=1
 router.route('/user')
 	.get(requireAuth, Users.getOutingProgress)
