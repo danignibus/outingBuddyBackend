@@ -122,20 +122,6 @@ export const updateOutingRating = (outingId, rating, res, callback) => {
 };
 
 /*
-This function validates the request from the client and returns errors if any
-parameters are incorrectly formatted or missing. If no errors, it calls initiateOuting.
-*/
-export const validateOutingRequest = (req, res) => {
-    if (!req.query.duration) {
-        return res.status(400).send('Duration not specified');
-    } else if (req.query.duration > 6 || req.query.duration % 1 !== 0) {
-        return res.status(400).send('Incorrect duration syntax');
-    } else {
-        initiateOuting(req, res);
-    }
-};
-
-/*
 This function saves the generated outing to the outings collection and calls
 a function to save the generated outing to the user's currentOuting field.
 */
@@ -284,6 +270,10 @@ export const completeOuting = (req, res, warmup, outing, remainingDuration, step
 
         stepQuery.exec((err, steps) => {
             // TODO (potentially): if steps returned is equal to 0, query around home's coordinates (rather than main activity's coordinates)
+            if (steps.length === 0 || steps === undefined) {
+                return res.status(404).send('Insufficient activities found in area; try lowering duration?');
+            }
+
             const arrayLength = steps.length;
             const step = steps[Math.floor(Math.random() * arrayLength)];
             outing.push(step);
@@ -385,7 +375,6 @@ export const initiateOuting = (req, res) => {
                 $centerSphere: [initialLocationCoordinates, radiusInRadians],
             },
         },
-        duration: halfDuration,
         warmup: 0,
     };
     const stepQuery = Step.find(query);
@@ -398,27 +387,47 @@ export const initiateOuting = (req, res) => {
             stepQuery.where('active').gt(0);
         }
     }
-    // find significant outing (i.e. at least half time of outing)
-    stepQuery.exec((err, steps) => {
-        if ((steps === undefined || steps.length === 0) && req.query.active) {
-            return res.status(404).send('Activities satisfying parameters not found in area; try removing active param?');
-        } else if ((steps === undefined || steps.length === 0) && req.query.radius) {
-            return res.status(404).send('Activities satisfying parameters not found in area; try increasing radius?');
-        } else if (steps === undefined || steps.length === 0) {
-            return res.status(404).send('Activities not found in area');
+
+    let mainStepOptions;
+    let mainStepDuration = halfDuration;
+
+    // Find significant outing (i.e. at least half time of outing)
+    async.whilst(
+        function () { return mainStepOptions === undefined },
+        function (callback) {
+            stepQuery.where('duration').eq(mainStepDuration);
+            stepQuery.exec((err, steps) => {
+                if (steps === undefined || steps.length === 0) {
+                    mainStepDuration = mainStepDuration - 1;
+                } else {
+                    // Randomly pull outing from array
+                    mainStepOptions = steps;
+                    const arrayLength = steps.length;
+                    const step = steps[Math.floor(Math.random() * arrayLength)];
+                    outing.push(step);
+                    stepIds.push(step._id);
+                    const newRemainingDuration = req.query.duration - step.duration;
+                    if (newRemainingDuration === 0) {
+                        saveAndReturnOuting(req, res, outing, stepIds);
+                    } else {
+                        getWarmup(req, res, outing, newRemainingDuration, stepIds);
+                    }
+                }
+                callback(null, steps);
+            });
+        },
+        function (err, results) {
+            if (err || results === undefined || !results) {
+                if (req.query.active) {
+                    return res.status(404).send('Activities satisfying parameters not found in area; try removing active param?');
+                } else if (req.query.radius) {
+                    return res.status(404).send('Activities satisfying parameters not found in area; try increasing radius?');
+                } else {
+                    return res.status(404).send('Insufficient activities found in area; try lowering duration?');
+                }
+            }
         }
-        // Randomly pull outing from array
-        const arrayLength = steps.length;
-        const step = steps[Math.floor(Math.random() * arrayLength)];
-        outing.push(step);
-        stepIds.push(step._id);
-        const newRemainingDuration = req.query.duration - step.duration;
-        if (newRemainingDuration === 0) {
-            saveAndReturnOuting(req, res, outing, stepIds);
-        } else {
-            getWarmup(req, res, outing, newRemainingDuration, stepIds);
-        }
-    });
+    );
 };
 
 /*
@@ -550,6 +559,21 @@ export const skipStep = (req, res) => {
                 res.send(newStep);
             });
     });
+};
+
+/*
+This function validates the request from the client and returns errors if any
+parameters are incorrectly formatted or missing. If no errors, it calls initiateOuting.
+*/
+export const validateOutingRequest = (req, res) => {
+    if (!req.query.duration) {
+        return res.status(400).send('Duration not specified');
+    } else if (req.query.duration % 1 !== 0) {
+  //  } else if (req.query.duration > 6 || req.query.duration % 1 !== 0) {
+        return res.status(400).send('Incorrect duration');
+    } else {
+        initiateOuting(req, res);
+    }
 };
 
 /*
