@@ -1,5 +1,7 @@
 import Step from '../models/step_model';
 import dotenv from 'dotenv';
+import nodemailer from 'nodemailer';
+
 dotenv.config({ silent: true });
 
 /*
@@ -25,5 +27,32 @@ export const createStep = (req, res) => {
         })
     .catch(error => {
         res.send(error);
+    });
+
+    // following is from nodemailer documentation
+
+    // using SMTP transport
+    const transporter = nodemailer.createTransport('SMTP', {
+        service: 'Gmail',
+        auth: {
+            user: process.env.APP_EMAIL,
+            pass: process.env.APP_PASSWORD,
+        },
+    });
+
+    // email info
+    const mailOptions = {
+        from: `"Outing Buddy App 👥" <${process.env.APP_EMAIL}>`, // sender address
+        to: `${process.env.APP_EMAIL}`,
+        subject: 'New step submission',
+        text: `Got a new step! 🐴🐴🐴 Title: ${step.title}. Description: ${step.description}. Duration: ${step.duration}. Coordinates: ${step.loc.coordinates}. Active: ${step.active}. Author: ${req.user.name}. Warmup: ${step.warmup}`,
+    };
+
+    // send mail with defined transport object
+    transporter.sendMail(mailOptions, function(error, info){
+        if(error){
+            return console.log(error);
+        }
+        console.log('Message sent: ' + info.response);
     });
 };
