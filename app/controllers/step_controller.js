@@ -20,6 +20,7 @@ export const createStep = (req, res) => {
     step.participants = req.query.participants || 'UNLIMITED';
     step.title = req.query.title;
     step.warmup = req.query.warmup || 0;
+    step.approved = 0;
 
     step.save()
         .then(result => {
@@ -53,6 +54,5 @@ export const createStep = (req, res) => {
         if(error){
             return console.log(error);
         }
-        console.log('Message sent: ' + info.response);
     });
 };

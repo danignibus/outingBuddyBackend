@@ -254,6 +254,7 @@ export const completeOuting = (req, res, warmup, outing, remainingDuration, step
                 $nin: stepIds,
             },
             warmup: 0,
+            approved: 1,
         };
 
         if (req.query.active === 0) {
@@ -306,6 +307,7 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds) => {
             $nin: stepIds,
         },
         warmup: 1,
+        approved: 1,
     };
 
     const warmupQuery = Step.find(query);
@@ -376,6 +378,7 @@ export const initiateOuting = (req, res) => {
             },
         },
         warmup: 0,
+        approved: 1,
     };
     const stepQuery = Step.find(query);
 
@@ -536,6 +539,7 @@ export const skipStep = (req, res) => {
                 $nin: currentOuting.stepIds,
             },
             duration: offendingStep.duration,
+            approved: 1,
         };
 
         const skipStepQuery = Step.find(query);
