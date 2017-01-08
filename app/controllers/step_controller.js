@@ -15,6 +15,7 @@ export const createStep = (req, res) => {
     step.author = req.user._id;
     step.description = req.query.description;
     step.duration = req.query.duration;
+    step.image = req.query.image;
     step.loc.coordinates = [req.query.lng, req.query.lat];
     step.loc.type = 'Point';
     step.participants = req.query.participants || 'UNLIMITED';

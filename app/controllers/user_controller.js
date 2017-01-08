@@ -154,16 +154,18 @@ export const getUserProfile = (req, res, next) => {
 Adds object to user's outings array with the outing ID, reflection ID, user's rating,
 and an image of the outing.
 */
-export const updateCompletedOutings = (userId, reflectionId, rating, outing) => {
+export const updateCompletedOutings = (userId, reflectionId, rating, outing, date) => {
     const outingSteps = outing.detailedSteps;
     const outingStepLength = outingSteps.length;
     const randomStep = outingSteps[Math.floor(Math.random() * outingStepLength)];
     const outingImage = randomStep.image || null;
     const userRating = rating || null;
+    const outingDate = date || null;
 
     User.findOneAndUpdate(
         { _id: userId },
         { $push: { outings: {
+            date: outingDate,
             outingId: outing._id,
             reflectionId,
             userRating,

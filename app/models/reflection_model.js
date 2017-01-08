@@ -3,6 +3,7 @@ import mongoose, { Schema } from 'mongoose';
 // create a schema for outings/description
 const ReflectionSchema = new Schema({
     author: { type: Schema.Types.ObjectId, ref: 'User' },
+    date: Date,
     entry: String,
     outingId: String,
     rating: Number,

@@ -23,13 +23,14 @@ export const addReflection = (req, res) => {
     reflection.entry = req.query.entry;
     reflection.outingId = req.query.outingId;
     reflection.rating = req.query.rating;
+    reflection.date = Date.now();
 
     reflection.save()
         .then(result => {
             OutingController.updateOutingRating(req.query.outingId, req.query.rating, res, function (status, message, outing) {
                 res.status(status).send(message);
                 if (status === 200) {
-                    UserController.updateCompletedOutings(req.user._id, result._id, req.query.rating, outing);
+                    UserController.updateCompletedOutings(req.user._id, result._id, req.query.rating, outing, reflection.date);
                 }
             });
         }).catch(error => {
