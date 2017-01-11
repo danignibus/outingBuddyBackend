@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 dotenv.config({ silent: true });
 
 const http = require('http');
+const Notification = require('../services/notifications');
 
 function tokenForUser(user) {
     const timestamp = new Date().getTime();
@@ -38,7 +39,6 @@ sending them a link.
 */
 export const inviteFriends = (req, res) => {
     // get user with that phone number, update lastPrompted to current time
-
     if (req.query.invited) {
         // Go through each phone number and see if they are in the DB
         const invited = req.query.invited;
@@ -50,6 +50,15 @@ export const inviteFriends = (req, res) => {
                 if (user === null) {
                     // Make request to /invite for that user
                     http.get(`${process.env.HEROKU_APP}/invite?phoneNumber=${invited[invitee]}`);
+                } else {
+                    // TODO: need to actually get player_ids
+                    console.log('existing friends were added; need to test on device');
+                    // const message = {
+                    //     app_id: process.env.ONESIGNAL_APP_ID,
+                    //     contents: { 'en': 'English Message' },
+                    //     include_player_ids: ['6392d91a-b206-4b7b-a620-cd68e32c3a76'],
+                    // };
+                    // Notification.sendNotification(message);
                 }
             });
         }

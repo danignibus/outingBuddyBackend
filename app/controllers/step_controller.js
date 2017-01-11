@@ -47,7 +47,7 @@ export const createStep = (req, res) => {
         from: `"Outing Buddy App 👥" <${process.env.APP_EMAIL}>`, // sender address
         to: `${process.env.APP_EMAIL}`,
         subject: 'New step submission',
-        text: `Got a new step! 🐴🐴🐴 Title: ${step.title}. Description: ${step.description}. Duration: ${step.duration}. Coordinates: ${step.loc.coordinates}. Active: ${step.active}. Author: ${req.user.name}. Warmup: ${step.warmup}`,
+        text: `Got a new step! 🐴🐴🐴 Title: ${step.title}. Description: ${step.description}. Duration: ${step.duration}. Coordinates: ${step.loc.coordinates}. Active: ${step.active}. Author: ${req.user.name}. Warmup: ${step.warmup}. Image: ${step.image}`,
     };
 
     // send mail with defined transport object
