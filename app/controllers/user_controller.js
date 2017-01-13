@@ -51,14 +51,16 @@ export const inviteFriends = (req, res) => {
                     // Make request to /invite for that user
                     http.get(`${process.env.HEROKU_APP}/invite?phoneNumber=${invited[invitee]}`);
                 } else {
-                    // TODO: need to actually get player_ids
+                    // TODO: add a GET to grab actual player ids from invited user once client is storing
+                    // these in frontend
+                    // make sure to add an IF since many users might not have these stored yet
                     console.log('existing friends were added; need to test on device');
-                    // const message = {
-                    //     app_id: process.env.ONESIGNAL_APP_ID,
-                    //     contents: { 'en': 'English Message' },
-                    //     include_player_ids: ['6392d91a-b206-4b7b-a620-cd68e32c3a76'],
-                    // };
-                    // Notification.sendNotification(message);
+                    const message = {
+                        app_id: process.env.ONESIGNAL_APP_ID,
+                        contents: { 'en': `You\'ve been invited to an outing by ${req.user.name}` },
+                        include_player_ids: ['ba3e0761-6596-4cea-ab5f-2bff5f2c2889'],
+                    };
+                    Notification.sendNotification(message);
                 }
             });
         }
@@ -115,12 +117,30 @@ export const saveCurrentOutingProgress = (res, userId, outingId, currentStep) =>
 };
 
 /*
+This function stores the player Id submitted by client.
+*/
+export const saveUserPlayerId = (req, res) => {
+    User.findOneAndUpdate(
+        { _id: req.user._id },
+        { playerId: req.query.playerId },
+        (err, user) => {
+            if (err) {
+                return res.status(400).send('Error saving user player Id');
+            } else {
+                return res.status(200).send('User player Id updated successfully');
+            }
+        });
+};
+
+/*
 This function is called by the client when the user moves onto a new step. It
 calls saveCurrentOutingProgress, which updates the database according to the
 user's currentOuting field to the proper outing Id and step.
 */
 export const updateUser = (req, res) => {
-    if (req.query.outingId && req.query.currentStep) {
+    if (req.query.playerId) {
+        saveUserPlayerId(req, res);
+    } else if (req.query.outingId && req.query.currentStep) {
         saveCurrentOutingProgress(res, req.user._id, req.query.outingId, req.query.currentStep);
         res.send('Successfully updated current outing progress');
     }

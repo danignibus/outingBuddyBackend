@@ -12,6 +12,7 @@ const UserSchema = new Schema({
     outings: [],
     password: String,
     phoneNumber: { type: String, required: true },
+    playerId: String,
 });
 
 UserSchema.set('toJSON', {
