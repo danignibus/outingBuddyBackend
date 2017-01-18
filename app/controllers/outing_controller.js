@@ -1,6 +1,7 @@
 // import consts from '../consts.js';
 // import Routific  from 'routific';
 import async from 'async';
+import CONST from '../consts';
 import request from 'request';
 import Outing from '../models/outing_model';
 import Step from '../models/step_model';
@@ -345,34 +346,53 @@ This function is passed an array of candidate steps for the outing's main step.
 It searches this array for a step that is appropriate for the current time and
 input duration.
 */
-export const findMainStep = (steps, callback) => {
+export const findMainStep = (steps, outingDuration, callback) => {
     // Go through steps until we find an acceptable one
-   // console.log('steps' + steps);
     const arrayLength = steps.length;
     const stepIndex = Math.floor(Math.random() * arrayLength);
     const step = steps[stepIndex];
-    console.log('step' + step);
     if (!step.repeat_start) {
         callback(step);
-    } else { // Step has a recurring time specification
-        // Calculate whether time is valid or not
+    } else {
+        // Step has a recurring time specification; calculate whether time is valid or not
         const date = new Date();
-        const currentTimeInSeconds = Math.floor(date.getTime()/1000);
+        const currentTimeInSeconds = Math.floor(date.getTime() / 1000);
+        const repeatInterval = step.repeat_interval;
+        const repeatIntervalSeconds = CONST[repeatInterval];
 
         const secondsBetween = currentTimeInSeconds - step.repeat_start;
-        const leftoverSeconds = secondsBetween % step.repeat_interval;
-        const secondsUntilEvent = step.repeat_interval - leftoverSeconds;
-        const minutesUntilEvent = secondsUntilEvent / 60;
+        const leftoverSeconds = secondsBetween % repeatIntervalSeconds;
 
-        console.log('minutes until event' + minutesUntilEvent);
-        if (minutesUntilEvent > 15) {
-            // If the event is occurring in over 15 minutes AND will conclude before the end
-            // of the outing, we can use it as our main event
+        let minutesUntilEvent;
+        // if leftover seconds is negative, this just means it hasn't happened yet (ever), so need cases
+        if (leftoverSeconds < 0) {
+            minutesUntilEvent = leftoverSeconds / 60;
+            minutesUntilEvent = minutesUntilEvent * -1;
+        } else {
+            const secondsUntilEvent = repeatIntervalSeconds - leftoverSeconds;
+            minutesUntilEvent = secondsUntilEvent / 60;
+        }
+        const recalculatedSecondsUntilEvent = minutesUntilEvent * 60;
+
+        // get end timestamp of outing
+        const outingDurationSeconds = outingDuration * 3600;
+        const stepDurationSeconds = step.duration * 3600;
+        const outingEndTime = Math.floor(date.getTime() / 1000) + outingDurationSeconds;
+        const stepEndTime = Math.floor(date.getTime() / 1000) + recalculatedSecondsUntilEvent + stepDurationSeconds;
+
+        // TODO: Add in if it doesn't have an interval but just has a start time and end time
+        // If the event is occurring in over 15 minutes AND will conclude before the end
+        // of the outing, we can use it as our main event
+        if (minutesUntilEvent > 15 && stepEndTime < outingEndTime) {
             callback(step);
         } else {
             // Remove this step from candidate steps
             steps.splice(stepIndex, 1);
-            findMainStep(steps, callback);
+            if (steps.length === 0) {
+                callback(null);
+            } else {
+                findMainStep(steps, callback);
+            }
         }
     }
 };
@@ -443,10 +463,12 @@ export const initiateOuting = (req, res) => {
                     // Randomly pull outing from array
                     mainStepOptions = steps;
                     // // Go through steps until we find an acceptable one
-                    findMainStep(steps, function(step) {
+                    findMainStep(steps, req.query.duration, function(step) {
                         // once getting the main step back
+                        if (step === null) {
+                            return res.status(404).send('There are activities in your area but not at this moment; try at different time of day?');
+                        }
                         outing.push(step);
-                        console.log('step' + step);
                         stepIds.push(step._id);
                         const newRemainingDuration = req.query.duration - step.duration;
                         if (newRemainingDuration === 0) {

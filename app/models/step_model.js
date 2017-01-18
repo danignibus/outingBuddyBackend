@@ -12,7 +12,7 @@ const StepSchema = new Schema({
         type: { type: String },
         coordinates: [Number],
     },
-    repeat_interval: Number,
+    repeat_interval: String,
     repeat_start: Number,
     title: { type: String, required: true },
     participants: String,
