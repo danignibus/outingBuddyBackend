@@ -341,6 +341,43 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds) => {
 };
 
 /*
+This function is passed an array of candidate steps for the outing's main step.
+It searches this array for a step that is appropriate for the current time and
+input duration.
+*/
+export const findMainStep = (steps, callback) => {
+    // Go through steps until we find an acceptable one
+   // console.log('steps' + steps);
+    const arrayLength = steps.length;
+    const stepIndex = Math.floor(Math.random() * arrayLength);
+    const step = steps[stepIndex];
+    console.log('step' + step);
+    if (!step.repeat_start) {
+        callback(step);
+    } else { // Step has a recurring time specification
+        // Calculate whether time is valid or not
+        const date = new Date();
+        const currentTimeInSeconds = Math.floor(date.getTime()/1000);
+
+        const secondsBetween = currentTimeInSeconds - step.repeat_start;
+        const leftoverSeconds = secondsBetween % step.repeat_interval;
+        const secondsUntilEvent = step.repeat_interval - leftoverSeconds;
+        const minutesUntilEvent = secondsUntilEvent / 60;
+
+        console.log('minutes until event' + minutesUntilEvent);
+        if (minutesUntilEvent > 15) {
+            // If the event is occurring in over 15 minutes AND will conclude before the end
+            // of the outing, we can use it as our main event
+            callback(step);
+        } else {
+            // Remove this step from candidate steps
+            steps.splice(stepIndex, 1);
+            findMainStep(steps, callback);
+        }
+    }
+};
+
+/*
 This function is called when an outing is requested. It pulls the MAIN outing event from the
 database, which currently is calculated based on the input duration and location. The MAIN outing
 event will take up at least half the time in the outing. It then calls getWarmup (if the duration
@@ -405,16 +442,19 @@ export const initiateOuting = (req, res) => {
                 } else {
                     // Randomly pull outing from array
                     mainStepOptions = steps;
-                    const arrayLength = steps.length;
-                    const step = steps[Math.floor(Math.random() * arrayLength)];
-                    outing.push(step);
-                    stepIds.push(step._id);
-                    const newRemainingDuration = req.query.duration - step.duration;
-                    if (newRemainingDuration === 0) {
-                        saveAndReturnOuting(req, res, outing, stepIds);
-                    } else {
-                        getWarmup(req, res, outing, newRemainingDuration, stepIds);
-                    }
+                    // // Go through steps until we find an acceptable one
+                    findMainStep(steps, function(step) {
+                        // once getting the main step back
+                        outing.push(step);
+                        console.log('step' + step);
+                        stepIds.push(step._id);
+                        const newRemainingDuration = req.query.duration - step.duration;
+                        if (newRemainingDuration === 0) {
+                            saveAndReturnOuting(req, res, outing, stepIds);
+                        } else {
+                            getWarmup(req, res, outing, newRemainingDuration, stepIds);
+                        }
+                    });
                 }
                 callback(null, steps);
             });
