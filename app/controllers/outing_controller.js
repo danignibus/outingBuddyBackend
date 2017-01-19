@@ -256,6 +256,7 @@ export const completeOuting = (req, res, warmup, outing, remainingDuration, step
             },
             warmup: 0,
             approved: 1,
+            repeat_start: null,
         };
 
         if (req.query.active === 0) {
@@ -309,6 +310,7 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds) => {
         },
         warmup: 1,
         approved: 1,
+        repeat_start: null,
     };
 
     const warmupQuery = Step.find(query);
@@ -366,6 +368,7 @@ export const fillBeforeMain = (req, res, outing, timeBeforeMain, stepIds) => {
         warmup: 0,
         approved: 1,
         duration: timeBeforeMain,
+        repeat_start: null,
     };
 
     const fillStepQuery = Step.find(query);
