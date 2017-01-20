@@ -54,13 +54,15 @@ export const inviteFriends = (req, res) => {
                     // TODO: add a GET to grab actual player ids from invited user once client is storing
                     // these in frontend
                     // make sure to add an IF since many users might not have these stored yet
-                    console.log('existing friends were added; need to test on device');
-                    const message = {
-                        app_id: process.env.ONESIGNAL_APP_ID,
-                        contents: { 'en': `You\'ve been invited to an outing by ${req.user.name}` },
-                        include_player_ids: ['ba3e0761-6596-4cea-ab5f-2bff5f2c2889'],
-                    };
-                    Notification.sendNotification(message);
+                    // console.log('existing friends were added; need to test on device');
+                    // const message = {
+                    //     app_id: process.env.ONESIGNAL_APP_ID,
+                    //     contents: { 'en': `You\'ve been invited to an outing by ${req.user.name}` },
+                    //     include_player_ids: ['ba3e0761-6596-4cea-ab5f-2bff5f2c2889'],
+                    // };
+                    // Notification.sendNotification(message);
+                    console.log('got into invite');
+                    http.get(`${process.env.HEROKU_APP}/invite?phoneNumber=${invited[invitee]}`);
                 }
             });
         }

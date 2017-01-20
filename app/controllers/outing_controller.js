@@ -244,6 +244,20 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
     } else if (remainingDurationMinutes >= 15) {
         const jsonObject = outing[0].toJSON();
 
+        let acceptableDurationsCounter = remainingDurationMinutes;
+        const acceptableDurations = [];
+        let durationMinimum;
+        // We don't want to send user on too many small tasks.
+        if (remainingDurationMinutes > 60) {
+            durationMinimum = 60;
+        } else {
+            durationMinimum = 0;
+        }
+        while (acceptableDurationsCounter > durationMinimum) {
+            acceptableDurations.push(acceptableDurationsCounter);
+            acceptableDurationsCounter -= 15;
+        }
+
         // query for steps within a given radius and that have not already been added to the outing
         const query = {
             loc: {
@@ -254,6 +268,7 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
             _id: {
                 $nin: stepIds,
             },
+            durationRange: { $in: acceptableDurations },
             warmup: 0,
             approved: 1,
             repeat_start: null,
@@ -264,17 +279,17 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
         }
 
         console.log('remaining duration in complete outing is ' + remainingDurationMinutes);
-        const stepQuery = Step.find(query).where('duration').lte(remainingDurationMinutes);
+        //const stepQuery = Step.find(query).where('duration').lte(remainingDurationMinutes);
         // Don't want to send user on too many small tasks
-        if (remainingDurationMinutes > 60) {
-            stepQuery.where('duration').gte(60);
-        }
+        // if (remainingDurationMinutes > 60) {
+        //     stepQuery.where('duration').gte(60);
+        // }
 
-        if (req.query.active) {
-            if (req.query.active === 0) {
-                stepQuery.where('active', 0);
-            }
-        }
+        // if (req.query.active) {
+        //     if (req.query.active === 0) {
+        //         stepQuery.where('active', 0);
+        //     }
+        // }
 
         stepQuery.exec((err, steps) => {
             // TODO (potentially): if steps returned is equal to 0, query around home's coordinates (rather than main activity's coordinates)
@@ -284,6 +299,7 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
 
             const arrayLength = steps.length;
             const step = steps[Math.floor(Math.random() * arrayLength)];
+            // TODO: need to push proper step duration
             outing.push(step);
             stepIds.push(step._id);
             const newRemainingDuration = remainingDurationMinutes - step.duration;
@@ -568,7 +584,6 @@ export const initiateOuting = (req, res) => {
                 } else {
                     // Randomly pull outing from array
                     mainStepOptions = steps;
-                    console.log('steps' + steps);
                     // // Go through steps until we find an acceptable one
                     findMainStep(steps, req.query.duration, function(step, minutesUntilEvent) {
                         // once getting the main step back
