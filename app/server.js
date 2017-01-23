@@ -1,6 +1,7 @@
 import apiRouter from './router';
 import express from 'express';
 import mongoose from 'mongoose';
+import CONST from './consts';
 
 import User from './models/user_model';
 
@@ -11,7 +12,12 @@ require('babel-register')({
 const http = require('http');
 
 // DB Setup
-const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost/outingsbot';
+let mongoURI;
+if (CONST.TEST) {
+    mongoURI = 'mongodb://localhost/test';
+} else {
+    mongoURI = process.env.MONGODB_URI || 'mongodb://localhost/outingsbot';
+}
 mongoose.connect(mongoURI);
 // set mongoose promises to es6 default
 mongoose.Promise = global.Promise;

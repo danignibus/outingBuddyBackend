@@ -580,7 +580,7 @@ export const initiateOuting = (req, res) => {
     };
     const stepQuery = Step.find(query);
 
-    //durations: { $in: [15] },
+    // durations: { $in: [15] },
 
     // Activity level must not exceed walking if user specifies nonactive, and must include some activity if user specifies active.
     if (req.query.active) {

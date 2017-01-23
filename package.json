@@ -34,8 +34,10 @@
     "passport-local": "^1.0.0",
     "request": "^2.79.0",
     "routific": "0.0.2",
+    "should": "^11.1.2",
     "sinon": "^1.17.6",
-    "sinon-express-mock": "^1.2.4"
+    "sinon-express-mock": "^1.2.4",
+    "supertest": "^2.0.1"
   },
   "devDependencies": {
     "babel-core": "^6.18.2",

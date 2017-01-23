@@ -42,22 +42,22 @@ describe('router', function() {
     //        // mlog.log('steps length' + steps.length);
     //     });
 
-    it('should only accept valid requests', function() {
-        const outingRequest = { query: { duration: 'abcde' } };
+    // it('should only accept valid requests', function() {
+    //     const outingRequest = { query: { duration: 'abcde' } };
 
-        const request = {
-            query: {
-                duration: 'abcde',
-            },
-        };
+    //     const request = {
+    //         query: {
+    //             duration: 'abcde',
+    //         },
+    //     };
 
-        const req = mockReq(request);
-        const res = mockRes();
+    //     const req = mockReq(request);
+    //     const res = mockRes();
 
-        outingController.validateOutingRequest(req, res);
-        //console.log(res);
-        //expect(res.json).to.be.calledWith({ foo: request.body.foo.bar })
-    });
+    //     outingController.validateOutingRequest(req, res);
+    //     //console.log(res);
+    //     //expect(res.json).to.be.calledWith({ foo: request.body.foo.bar })
+    // });
 });
 
 
