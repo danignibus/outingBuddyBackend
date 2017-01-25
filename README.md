@@ -11,6 +11,6 @@ Our API currently includes the following routes and functionality:
 **/user:** Returns current outing and step of the user.  
 **/user/history:** Returns a list of objects for each outing that include outing ID, journal ID, outing image, and rating by the user.  
 
-Unit tests for the models and controllers can be found in **/test** and run with **npm test**.  
+Unit tests for the models and controllers can be found in **/test** and run with **npm test** when localhost server is running.
 
 Server.js also includes code from our rudimentary SMS bot, which we used in an initial study to gather data for our thesis. The bot prompted users for entries of their best, most recent experiences every three days, and also responded to user's requests for various outings around the area. 

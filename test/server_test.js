@@ -42,18 +42,18 @@ describe('Routing', function() {
         };
 
 
-        it('should successfully sign up new user', function(done) {
-            request(url)
-                .post('/api/signup')
-                .query(signupInfo)
-                .end(function(err, res){
-                    if (err) {
-                        console.log('error is: ' + err);
-                    }
-                    res.status.should.be.equal(200);
-                    done();
-                });
-        });
+        // it('should successfully sign up new user', function(done) {
+        //     request(url)
+        //         .post('/api/signup')
+        //         .query(signupInfo)
+        //         .end(function(err, res){
+        //             if (err) {
+        //                 console.log('error is: ' + err);
+        //             }
+        //             res.status.should.be.equal(200);
+        //             done();
+        //         });
+        // });
 
 
         it('should return user already exists when user is already in database', function(done) {

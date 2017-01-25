@@ -4,7 +4,7 @@ import mongoose, { Schema } from 'mongoose';
 const StepSchema = new Schema({
     active: { type: Number, required: true },
     approved: Number,
-    author: { type: Schema.Types.ObjectId, ref: 'User' },
+    author: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     description: { type: String, required: true },
     duration: { type: Number, required: true },
     durationRange: [Number],

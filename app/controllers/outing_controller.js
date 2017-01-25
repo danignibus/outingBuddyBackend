@@ -231,17 +231,14 @@ the main step and the warmup.
 export const completeOuting = (req, res, warmup, outing, remainingDurationMinutes, stepIds) => {
     // get acceptable travel radius from client
     // NOTE: must have enough populated outings for small radii to work!
-    console.log('IN COMPLETE OUTING');
     let miles;
     if (req.query.radius) {
         miles = req.query.radius;
     } else {
         miles = 3;
     }
-
     const radiusInRadians = miles / 3959;
     if (remainingDurationMinutes < 15) {
-        console.log('optimized route for: ' + outing);
         optimizeRouteXL(req, res, warmup, outing, stepIds);
     } else if (remainingDurationMinutes >= 15) {
         const jsonObject = outing[0].toJSON();
@@ -301,25 +298,18 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
             const step = steps[Math.floor(Math.random() * arrayLength)];
             // TODO: need to push proper step duration
             const availableDuration = step.durationRange;
-            console.log('available duration from step durationRange' + availableDuration);
             let midpointIndex = Math.round((availableDuration.length - 1) / 2);
-            console.log('midpoint index ' + midpointIndex);
             let midpointDuration = availableDuration[midpointIndex];
-            console.log('midpoint duration ' + midpointDuration);
             while (acceptableDurations.indexOf(midpointDuration) === -1) {
-                console.log('got into while loop');
                 midpointIndex -= 1;
                 midpointDuration = availableDuration[midpointIndex];
             }
 
             step.duration = midpointDuration;
-            console.log('final step duration' + step.duration);
 
             outing.push(step);
-            console.log('added step' + step);
             stepIds.push(step._id);
             const newRemainingDuration = remainingDurationMinutes - step.duration;
-            console.log('NEW REMAINING MINUTES AT END OF COMPLETE OUTING' + newRemainingDuration);
             completeOuting(req, res, warmup, outing, newRemainingDuration, stepIds);
         });
     }
@@ -362,6 +352,10 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds, warmupLe
 
     // get all results, then index randomly into array
     warmupQuery.exec((err, steps) => {
+        if (steps === undefined || steps.length === 0) {
+            //TODO: In future should just check for steps in this case!
+            return res.status(404).send('There are no warmups in this area and therefore not enough activities :(');
+        }
         const arrayLength = steps.length;
         const warmup = steps[Math.floor(Math.random() * arrayLength)];
 
@@ -487,7 +481,6 @@ export const findMainStep = (steps, outingDuration, stepDuration, callback) => {
             minutesUntilEvent = secondsUntilEvent / 60;
         }
         const recalculatedSecondsUntilEvent = minutesUntilEvent * 60;
-        console.log('minutes until event' + minutesUntilEvent);
 
         // get end timestamp of outing
         const outingDurationSeconds = outingDuration * 3600;
@@ -545,7 +538,6 @@ is not already filled) to continue to populate the outing.
 */
 export const initiateOuting = (req, res) => {
     const duration = req.query.duration;
-
     const halfDuration = Math.ceil(duration / 2);
     const halfDurationMinutes = halfDuration * 60;
     const outing = [];
