@@ -601,35 +601,38 @@ export const initiateOuting = (req, res) => {
                     findMainStep(steps, req.query.duration, mainStepDurationMinutes, function(step, minutesUntilEvent) {
                         // once getting the main step back
                         if (step === null) {
-                            return res.status(404).send('There are activities in your area but not at this moment; try at different time of day?');
-                        }
-                        outing.push(step);
-                        stepIds.push(step._id);
-
-                        // If main event is a time sensitive event
-                        if (minutesUntilEvent) {
-                            // if time before event is less than 15 minutes, send user to event immediately
-                            // TODO: eventually account for driving time
-                            if (minutesUntilEvent <= 30) {
-                                // have user walk around for a bit
-                                exploreArea(req, res, outing, minutesUntilEvent, step.duration, stepIds);
-                            } else if (minutesUntilEvent <= 60) {
-                                // send user on warmup
-                                const newRemainingDurationMinutes = req.query.duration * 60 - step.duration;
-                                getWarmup(req, res, outing, newRemainingDurationMinutes, stepIds, minutesUntilEvent);
-                            } else {
-                                // fill time before event with something larger
-                                const timeBeforeMain = Math.ceil(minutesUntilEvent / 60);
-                                fillBeforeMain(req, res, outing, timeBeforeMain, stepIds);
-                            }
-                        // Else, it's a non time sensitive event so just fill as we have been filling.
-                        // Note: we'll eventually want to be more time sensitive anyway so this needs to be modified.
+                            mainStepOptions = undefined;
+                            mainStepDurationMinutes = mainStepDurationMinutes - 60;
+                            //return res.status(404).send('There are activities in your area but not at this moment; try at different time of day?');
                         } else {
-                            const newRemainingDuration = req.query.duration * 60 - step.duration;
-                            if (newRemainingDuration === 0) {
-                                saveAndReturnOuting(req, res, outing, stepIds);
+                            outing.push(step);
+                            stepIds.push(step._id);
+
+                            // If main event is a time sensitive event
+                            if (minutesUntilEvent) {
+                                // if time before event is less than 15 minutes, send user to event immediately
+                                // TODO: eventually account for driving time
+                                if (minutesUntilEvent <= 30) {
+                                    // have user walk around for a bit
+                                    exploreArea(req, res, outing, minutesUntilEvent, step.duration, stepIds);
+                                } else if (minutesUntilEvent <= 60) {
+                                    // send user on warmup
+                                    const newRemainingDurationMinutes = req.query.duration * 60 - step.duration;
+                                    getWarmup(req, res, outing, newRemainingDurationMinutes, stepIds, minutesUntilEvent);
+                                } else {
+                                    // fill time before event with something larger
+                                    const timeBeforeMain = Math.ceil(minutesUntilEvent / 60);
+                                    fillBeforeMain(req, res, outing, timeBeforeMain, stepIds);
+                                }
+                            // Else, it's a non time sensitive event so just fill as we have been filling.
+                            // Note: we'll eventually want to be more time sensitive anyway so this needs to be modified.
                             } else {
-                                getWarmup(req, res, outing, newRemainingDuration, stepIds);
+                                const newRemainingDuration = req.query.duration * 60 - step.duration;
+                                if (newRemainingDuration === 0) {
+                                    saveAndReturnOuting(req, res, outing, stepIds);
+                                } else {
+                                    getWarmup(req, res, outing, newRemainingDuration, stepIds);
+                                }
                             }
                         }
                     });

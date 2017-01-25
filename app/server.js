@@ -84,6 +84,10 @@ controller.setupWebserver(port, function (err, webserver) {
 
         // When inviting friends, if they are not already in the user DB the application will send them a text inviting them
         // to download the app.
+
+        webserver.get(`/${process.env.LOADER_IO_STRING}/`, (req, res) => {
+            res.send(process.env.LOADER_IO_TOKEN);
+        });
         webserver.get('/invite', (req, res) => {
 
             if (!req.query.phoneNumber) {

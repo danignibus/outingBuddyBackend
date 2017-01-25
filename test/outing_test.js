@@ -57,6 +57,7 @@ describe('Outing', function() {
                     if (err) {
                         console.log('error is: ' + err);
                     }
+                    console.log('Generated 60 minute outing: ' + res.body);
                     res.status.should.be.equal(200);
                     let duration = 0;
                     for (const item in res.body.detailedSteps) {
@@ -79,6 +80,7 @@ describe('Outing', function() {
                     if (err) {
                         console.log('error is: ' + err);
                     }
+                    console.log('Generated 120 minute outing: ' + res.body);
                     res.status.should.be.equal(200);
                     let duration = 0;
                     for (const item in res.body.detailedSteps) {
@@ -101,6 +103,7 @@ describe('Outing', function() {
                     if (err) {
                         console.log('error is: ' + err);
                     }
+                    console.log('Generated 180 minute outing: ' + res.body);
                     res.status.should.be.equal(200);
                     let duration = 0;
                     for (const item in res.body.detailedSteps) {
@@ -123,6 +126,7 @@ describe('Outing', function() {
                     if (err) {
                         console.log('error is: ' + err);
                     }
+                    console.log('Generated 240 minute outing: ' + res.body);
                     res.status.should.be.equal(200);
                     let duration = 0;
                     for (const item in res.body.detailedSteps) {
@@ -145,11 +149,15 @@ describe('Outing', function() {
                     if (err) {
                         console.log('error is: ' + err);
                     }
-                    res.status.should.be.equal(200);
+                    for (const item in res.body.detailedSteps) {
+                        duration += res.body.detailedSteps[item].duration;
+                    }
                     let duration = 0;
                     for (const item in res.body.detailedSteps) {
                         duration += res.body.detailedSteps[item].duration;
                     }
+                    console.log(`final duration 5 hour outing: ${duration}`);
+                    res.status.should.be.equal(200);
                     duration.should.be.equal(300);
                     done();
                 });
@@ -167,11 +175,12 @@ describe('Outing', function() {
                     if (err) {
                         console.log('error is: ' + err);
                     }
-                    res.status.should.be.equal(200);
                     let duration = 0;
                     for (const item in res.body.detailedSteps) {
                         duration += res.body.detailedSteps[item].duration;
                     }
+                    console.log(`final duration 6 hours: ${duration}`);
+                    res.status.should.be.equal(200);
                     duration.should.be.equal(360);
                     done();
                 });
