@@ -11,18 +11,8 @@ describe('Outing', function() {
 
     const url = 'http://localhost:9090';
 
-
-   // before(function(done) {
-        // Want to use the test DB
-        // const mongoURI = 'mongodb://localhost/test';
-        // mongoose.connect(mongoURI);
-        // done();
-   // });
-
     describe('Getting outings', function() {
 
-        // const mongoURI = 'mongodb://localhost/test';
-        // mongoose.connect(mongoURI);
         const signinInfo = {
             name: 'Dani Gnibus',
             password: 'testpassword',

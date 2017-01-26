@@ -13,7 +13,7 @@ const http = require('http');
 
 // DB Setup
 let mongoURI;
-if (CONST.TEST) {
+if (process.env.TEST === true) {
     mongoURI = 'mongodb://localhost/test';
 } else {
     mongoURI = process.env.MONGODB_URI || 'mongodb://localhost/outingsbot';
@@ -88,6 +88,11 @@ controller.setupWebserver(port, function (err, webserver) {
         webserver.get(`/${process.env.LOADER_IO_STRING}/`, (req, res) => {
             res.send(process.env.LOADER_IO_TOKEN);
         });
+
+        webserver.get(`/${process.env.LOADER_IO_STRING_2}/`, (req, res) => {
+            res.send(process.env.LOADER_IO_TOKEN_2);
+        });
+
         webserver.get('/invite', (req, res) => {
 
             if (!req.query.phoneNumber) {

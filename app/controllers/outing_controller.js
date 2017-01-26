@@ -130,7 +130,7 @@ export const saveAndReturnOuting = (req, res, detailedSteps, stepIds) => {
     const outing = new Outing();
     outing.detailedSteps = detailedSteps;
     outing.stepIds = stepIds;
-
+    console.log('got to save and return outing with the outing ' + outing);
     outing.save()
         .then(result => {
             const userId = req.user._id;
@@ -146,11 +146,24 @@ export const saveAndReturnOuting = (req, res, detailedSteps, stepIds) => {
     });
 };
 
+export const optimizeRouteXLPlaceholder = (req, res, warmup, outing, stepIds) => {
+    const finalResult = [];
+
+    finalResult.push(warmup);
+    // start at 1, end at length -1 to remove the Green from outing
+    for (let i = 0; i < outing.length - 1; i++) {
+        finalResult.push(outing[i]);
+    }
+
+    saveAndReturnOuting(req, res, finalResult, stepIds);
+};
+
 /*
 This function uses the RouteXL API to optimized the generated outing based on the user's current
 location so that the user is sent on the most efficient route.
 */
 export const optimizeRouteXL = (req, res, warmup, outing, stepIds) => {
+    console.log('outing so far' + outing);
     const locations = [];
 
     // optimized route starts with large outing
@@ -238,9 +251,10 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
         miles = 3;
     }
     const radiusInRadians = miles / 3959;
-    if (remainingDurationMinutes < 15) {
-        optimizeRouteXL(req, res, warmup, outing, stepIds);
-    } else if (remainingDurationMinutes >= 15) {
+    if (remainingDurationMinutes <= 15) {
+        // TODO: could have 15 min activities
+        optimizeRouteXLPlaceholder(req, res, warmup, outing, stepIds);
+    } else if (remainingDurationMinutes > 15) {
         const jsonObject = outing[0].toJSON();
 
         let acceptableDurationsCounter = remainingDurationMinutes;
@@ -249,6 +263,7 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
         // We don't want to send user on too many small tasks.
         if (remainingDurationMinutes > 60) {
             durationMinimum = 60;
+        //TODO: Fix this.
         } else if (remainingDurationMinutes > 30) {
             durationMinimum = 30;
         } else {
@@ -275,9 +290,9 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
             repeat_start: null,
         };
 
-        if (req.query.active === 0) {
-            query.active = { $in: [0, 1] };
-        }
+        // if (req.query.active === 0) {
+        //     query.active = { $in: [0, 1] };
+        // }
 
         console.log('remaining duration in complete outing is ' + remainingDurationMinutes);
         const stepQuery = Step.find(query);
@@ -285,18 +300,22 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
         if (req.query.active) {
             if (req.query.active === 0) {
                 stepQuery.where('active', 0);
+            } else if (req.query.active === 1) {
+                stepQuery.active = { $in: [0, 1] };
+            } else {
+                stepQuery.active = { $in: [0, 1, 2, 3] };
             }
         }
 
         stepQuery.exec((err, steps) => {
             // TODO (potentially): if steps returned is equal to 0, query around home's coordinates (rather than main activity's coordinates)
             if (steps.length === 0 || steps === undefined) {
+                console.log('got insufficient activities');
                 return res.status(404).send('Insufficient activities found in area; try lowering duration?');
             }
 
             const arrayLength = steps.length;
             const step = steps[Math.floor(Math.random() * arrayLength)];
-            // TODO: need to push proper step duration
             const availableDuration = step.durationRange;
             let midpointIndex = Math.round((availableDuration.length - 1) / 2);
             let midpointDuration = availableDuration[midpointIndex];
@@ -304,7 +323,6 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
                 midpointIndex -= 1;
                 midpointDuration = availableDuration[midpointIndex];
             }
-
             step.duration = midpointDuration;
 
             outing.push(step);
@@ -377,7 +395,8 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds, warmupLe
         } else {
             newRemainingDuration = remainingDuration - warmup.duration;
         }
-        if (newRemainingDuration < 15) {
+        //TODO: Could have 15 hour outings
+        if (newRemainingDuration <= 15) {
             // add the warmup to the activity
             const finalResult = [];
             finalResult.push(warmup);
@@ -577,9 +596,11 @@ export const initiateOuting = (req, res) => {
     // Activity level must not exceed walking if user specifies nonactive, and must include some activity if user specifies active.
     if (req.query.active) {
         if (req.query.active === 0) {
-            stepQuery.where('active').lte(1);
+            stepQuery.where('active', 0);
+        } else if (req.query.active === 1) {
+            stepQuery.active = { $in: [0, 1] };
         } else {
-            stepQuery.where('active').gt(0);
+            stepQuery.where('active').gt(1);
         }
     }
 
@@ -607,7 +628,6 @@ export const initiateOuting = (req, res) => {
                         } else {
                             outing.push(step);
                             stepIds.push(step._id);
-
                             // If main event is a time sensitive event
                             if (minutesUntilEvent) {
                                 // if time before event is less than 15 minutes, send user to event immediately

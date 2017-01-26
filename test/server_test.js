@@ -11,14 +11,6 @@ describe('Routing', function() {
 
     const url = 'http://localhost:9090';
 
-
-   // before(function(done) {
-        // Want to use the test DB
-        // const mongoURI = 'mongodb://localhost/test';
-        // mongoose.connect(mongoURI);
-        // done();
-   // });
-
     describe('Authentication', function() {
 
         const mongoURI = 'mongodb://localhost/test';
