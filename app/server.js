@@ -94,7 +94,6 @@ controller.setupWebserver(port, function (err, webserver) {
         });
 
         webserver.get('/invite', (req, res) => {
-
             if (!req.query.phoneNumber) {
                 return res.status(400).send('Invitee not specified');
             } else {
@@ -103,6 +102,7 @@ controller.setupWebserver(port, function (err, webserver) {
                         return res.send();
                     }
                     if (user === null) {
+                        console.log('this user is null');
                         // Note: Assuming all country codes will be 1 for now
                         const formattedPhoneNumber = `+1${req.query.phoneNumber}`;
                         const message = {
@@ -115,13 +115,28 @@ controller.setupWebserver(port, function (err, webserver) {
                             if (err) {
                                 console.log(err);
                             }
-                            // TODO: Add link once we get TestFlight working
-                            convo.say('You have been added to an outing on OutingBuddy! Click here to download the app and follow along:');
+                            convo.say(`You have been added to an outing on Guide by ${req.query.inviter}! Visit ${process.env.APP_WEBSITE} to download the app!`);
                             convo.next();
                         });
                         res.send('Invited new user');
                     } else {
-                        res.send('User already in DB');
+                        // TODO: Eventually we will send push notification here
+                        const formattedPhoneNumber = `+1${req.query.phoneNumber}`;
+                        const message = {
+                            from: process.env.TWILIO_NUMBER,
+                            to: formattedPhoneNumber,
+                            user: formattedPhoneNumber,
+                            channel: formattedPhoneNumber,
+                        };
+                        bot.startConversation(message, (err, convo) => {
+                            if (err) {
+                                console.log(err);
+                            }
+                            // TODO: Add link once we get TestFlight working
+                            convo.say(`You have been added to an outing on Guide by ${req.query.inviter}!`);
+                            convo.next();
+                        });
+                        res.send('User already in DB, but sent invite via SMS for now');
                     }
                 });
             }

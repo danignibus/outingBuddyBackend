@@ -130,12 +130,11 @@ export const saveAndReturnOuting = (req, res, detailedSteps, stepIds) => {
     const outing = new Outing();
     outing.detailedSteps = detailedSteps;
     outing.stepIds = stepIds;
-    console.log('got to save and return outing with the outing ' + outing);
     outing.save()
         .then(result => {
             const userId = req.user._id;
             UserController.saveCurrentOutingProgress(res, userId, result._id, 0);
-            UserController.inviteFriends(req, res);
+            UserController.inviteFriends(req, res, result._id);
             res.json({
                 outingId: result._id,
                 detailedSteps,

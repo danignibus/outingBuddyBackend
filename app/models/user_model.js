@@ -6,6 +6,7 @@ const UserSchema = new Schema({
     currentOuting: [],
     group: String,
     image: String,
+    invitedOutings: [],
     journals: [],
     lastPrompted: Date,
     name: String,

@@ -37,7 +37,7 @@ This function is called when an outing is created. It invites any friends who ar
 the outing but whose phone numbers are not currently registered with the app to download the app by
 sending them a link.
 */
-export const inviteFriends = (req, res) => {
+export const inviteFriends = (req, res, outingId) => {
     // get user with that phone number, update lastPrompted to current time
     if (req.query.invited) {
         // Go through each phone number and see if they are in the DB
@@ -48,8 +48,12 @@ export const inviteFriends = (req, res) => {
                     return res.send();
                 }
                 if (user === null) {
+                    // If it includes country code, remove
+                    if (invited[invitee].length === 11) {
+                        invited[invitee] = invited[invitee].slice(1);
+                    }
                     // Make request to /invite for that user
-                    http.get(`${process.env.HEROKU_APP}/invite?phoneNumber=${invited[invitee]}`);
+                    http.get(`${process.env.HEROKU_APP}/invite?phoneNumber=${invited[invitee]}&inviter=${req.user.name}`);
                 } else {
                     // TODO: add a GET to grab actual player ids from invited user once client is storing
                     // these in frontend
@@ -61,8 +65,18 @@ export const inviteFriends = (req, res) => {
                     //     include_player_ids: ['ba3e0761-6596-4cea-ab5f-2bff5f2c2889'],
                     // };
                     // Notification.sendNotification(message);
-                    console.log('got into invite');
-                    http.get(`${process.env.HEROKU_APP}/invite?phoneNumber=${invited[invitee]}`);
+                    if (invited[invitee].length === 11) {
+                        invited[invitee] = invited[invitee].slice(1);
+                    }
+                    User.findOneAndUpdate(
+                        { _id: user._id },
+                        { $push: { invitedOutings: outingId } },
+                        (err, user) => {
+                            if (err) {
+                                console.log('Error adding to invitedOutings for user');
+                            }
+                        });
+                    http.get(`${process.env.HEROKU_APP}/invite?phoneNumber=${invited[invitee]}&inviter=${req.user.name}`);
                 }
             });
         }
