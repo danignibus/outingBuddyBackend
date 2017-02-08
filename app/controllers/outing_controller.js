@@ -145,24 +145,72 @@ export const saveAndReturnOuting = (req, res, detailedSteps, stepIds) => {
     });
 };
 
-export const optimizeRouteXLPlaceholder = (req, res, warmup, outing, stepIds) => {
+/*
+This function, given a startStep, finds the step among all the remaining steps that is closest
+using the Haversine Distance Formula and returns the index of this step in the outing array.
+*/
+export const findClosestStep = (startStep, outing, callback) => {
+    let minDist = Number.POSITIVE_INFINITY;
+    let minStepIndex;
+    for (let i = 0; i < outing.length; i++) {
+        if (outing[i] !== null) {
+            // Calculate distance between coordinates of startStep and outingStep
+            // source: http://www.movable-type.co.uk/scripts/latlong.html
+            const R = 6371e3; // metres
+            const φ1 = toRadians(startStep.loc.coordinates[1]);
+            const φ2 = toRadians(outing[i].loc.coordinates[0]);
+            const Δφ = toRadians(outing[i].loc.coordinates[1] - startStep.loc.coordinates[1]);
+            const Δλ = toRadians(outing[i].loc.coordinates[0] - startStep.loc.coordinates[0]);
+
+            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                    Math.cos(φ1) * Math.cos(φ2) *
+                    Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+            const distance = R * c;
+            if (distance < minDist) {
+                minDist = distance;
+                minStepIndex = i;
+            }
+        }
+    }
+    callback(minDist, minStepIndex);
+};
+
+/*
+This function optimizes the generated outing based on the user's current
+location so that the user is sent on the most efficient route. Temporarily using brute force;
+I hope to modify this soon to use a dynamic programming approach. Note: this will not currently work
+with time-sensitive events.
+*/
+export const optimizeRoute = (req, res, warmup, outing, stepIds) => {
     const finalResult = [];
 
     finalResult.push(warmup);
-    // start at 1, end at length -1 to remove the Green from outing
-    for (let i = 0; i < outing.length - 1; i++) {
-        finalResult.push(outing[i]);
+    finalResult.push(outing[0]); // main step
+
+    let firstStep = outing[0];
+    outing.splice(0, 1);
+    while (outing.length > 0) {
+        findClosestStep(firstStep, outing, function(minDistance, minStepIndex) {
+            finalResult.push(outing[minStepIndex]);
+            outing.splice(minStepIndex, 1);
+        });
     }
 
     saveAndReturnOuting(req, res, finalResult, stepIds);
 };
+
+// Helper function to convert coordinates to radians
+function toRadians(x) {
+   return x * Math.PI / 180;
+}
 
 /*
 This function uses the RouteXL API to optimized the generated outing based on the user's current
 location so that the user is sent on the most efficient route.
 */
 export const optimizeRouteXL = (req, res, warmup, outing, stepIds) => {
-    console.log('outing so far' + outing);
     const locations = [];
 
     // optimized route starts with large outing
@@ -252,7 +300,7 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
     const radiusInRadians = miles / 3959;
     if (remainingDurationMinutes <= 15) {
         // TODO: could have 15 min activities
-        optimizeRouteXLPlaceholder(req, res, warmup, outing, stepIds);
+        optimizeRoute(req, res, warmup, outing, stepIds);
     } else if (remainingDurationMinutes > 15) {
         const jsonObject = outing[0].toJSON();
 
@@ -614,6 +662,20 @@ export const initiateOuting = (req, res) => {
             stepQuery.exec((err, steps) => {
                 if (steps === undefined || steps.length === 0) {
                     mainStepDurationMinutes = mainStepDurationMinutes - 60;
+                    console.log('main step duration' + mainStepDurationMinutes);
+                    // If we have checked for all active outings within time range, remove active specification and try to just
+                    // find a normal outing
+                    if (mainStepDurationMinutes === 0) {
+                        if (req.query.active > 0) {
+                            stepQuery.active = { $in: [0, 1, 2] };
+                            console.log(stepQuery.active);
+                            console.log('main step' + mainStepDurationMinutes);
+                            req.query.active = 0;
+                            mainStepDurationMinutes = halfDurationMinutes;
+                        } else {
+                            return res.status(400).send('No activities in your area yet :( Upload one today!');
+                        }
+                    }
                 } else {
                     // Randomly pull outing from array
                     mainStepOptions = steps;
@@ -623,7 +685,7 @@ export const initiateOuting = (req, res) => {
                         if (step === null) {
                             mainStepOptions = undefined;
                             mainStepDurationMinutes = mainStepDurationMinutes - 60;
-                            //return res.status(404).send('There are activities in your area but not at this moment; try at different time of day?');
+                            // return res.status(404).send('There are activities in your area but not at this moment; try at different time of day?');
                         } else {
                             outing.push(step);
                             stepIds.push(step._id);
