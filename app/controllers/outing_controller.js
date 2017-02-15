@@ -2,9 +2,13 @@
 // import Routific  from 'routific';
 import async from 'async';
 import CONST from '../consts';
+import mongoose from 'mongoose';
 import request from 'request';
+
 import Outing from '../models/outing_model';
+import Route from '../models/route_model';
 import Step from '../models/step_model';
+
 import dotenv from 'dotenv';
 dotenv.config({ silent: true });
 
@@ -145,6 +149,11 @@ export const saveAndReturnOuting = (req, res, detailedSteps, stepIds) => {
     });
 };
 
+// Helper function to convert coordinates to radians
+function toRadians(x) {
+    return x * Math.PI / 180;
+}
+
 /*
 This function, given a startStep, finds the step among all the remaining steps that is closest
 using the Haversine Distance Formula and returns the index of this step in the outing array.
@@ -154,11 +163,12 @@ export const findClosestStep = (startStep, outing, callback) => {
     let minStepIndex;
     for (let i = 0; i < outing.length; i++) {
         if (outing[i] !== null) {
+
             // Calculate distance between coordinates of startStep and outingStep
             // source: http://www.movable-type.co.uk/scripts/latlong.html
             const R = 6371e3; // metres
             const φ1 = toRadians(startStep.loc.coordinates[1]);
-            const φ2 = toRadians(outing[i].loc.coordinates[0]);
+            const φ2 = toRadians(outing[i].loc.coordinates[1]);
             const Δφ = toRadians(outing[i].loc.coordinates[1] - startStep.loc.coordinates[1]);
             const Δλ = toRadians(outing[i].loc.coordinates[0] - startStep.loc.coordinates[0]);
 
@@ -177,6 +187,26 @@ export const findClosestStep = (startStep, outing, callback) => {
     callback(minDist, minStepIndex);
 };
 
+
+/*
+This function adds an optimal calculated route to the DB.
+*/
+export const saveRoute = (routeToSave, routeToSaveIdString) => {
+    const route = new Route();
+
+    route.stepIds = routeToSaveIdString;
+    route.route = routeToSave;
+
+    route.save()
+        .then(result => {
+            console.log(result);
+        })
+    .catch(error => {
+        console.log(error);
+    });
+};
+
+
 /*
 This function optimizes the generated outing based on the user's current
 location so that the user is sent on the most efficient route. Temporarily using brute force;
@@ -191,20 +221,61 @@ export const optimizeRoute = (req, res, warmup, outing, stepIds) => {
 
     let firstStep = outing[0];
     outing.splice(0, 1);
-    while (outing.length > 0) {
-        findClosestStep(firstStep, outing, function(minDistance, minStepIndex) {
-            finalResult.push(outing[minStepIndex]);
-            outing.splice(minStepIndex, 1);
-        });
-    }
 
-    saveAndReturnOuting(req, res, finalResult, stepIds);
+    const unsortedStepIds = stepIds.slice();
+    let sortedStepIds = stepIds.slice();
+    const routeToSave = [];
+    let routeToSaveIdString = '';
+    // routeToSave.push(firstStep._id);
+    unsortedStepIds.splice(0, 1);
+    sortedStepIds.splice(0, 1);
+
+    async.whilst(
+        // test function
+        function() {
+            return outing.length > 0;
+        },
+        // iteratee function
+        function(callback) {
+            sortedStepIds = unsortedStepIds.slice();
+            sortedStepIds.sort();
+            let sortedStepIdString = '';
+            for (const id in sortedStepIds) {
+                sortedStepIdString += sortedStepIds[id];
+            }
+            routeToSaveIdString = sortedStepIdString;
+
+            // Check if this route already exists in the DB
+            const routeQuery = Route.find({ stepIds: sortedStepIdString });
+            routeQuery.exec((err, route) => {
+                if (route == null) {
+                    // If route is null, calculate the proper route using brute force
+                    findClosestStep(firstStep, outing, function(minDistance, minStepIndex) {
+                        routeToSave.push(outing[minStepIndex]._id);
+                        finalResult.push(outing[minStepIndex]);
+                        firstStep = outing[minStepIndex];
+                        outing.splice(minStepIndex, 1);
+                        unsortedStepIds.splice(minStepIndex, 1);
+                        callback(null, outing);
+                    });
+                } else {
+                    // Else, use the precalculated route from the DB
+                    for (let i = 0; i < route[0].route.length; i++) {
+                        const index = outing.indexOf(route[0].route[i]);
+                        finalResult.push(outing[index]);
+                        outing.splice(index, 1);
+                        unsortedStepIds.splice(index, 1);
+                    }
+                }
+            });
+        },
+        // callback function; called when test fails
+        function (err, outing) {
+            saveRoute(routeToSave, routeToSaveIdString);
+            saveAndReturnOuting(req, res, finalResult, stepIds);
+        }
+    );
 };
-
-// Helper function to convert coordinates to radians
-function toRadians(x) {
-   return x * Math.PI / 180;
-}
 
 /*
 This function uses the RouteXL API to optimized the generated outing based on the user's current
@@ -310,7 +381,7 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
         // We don't want to send user on too many small tasks.
         if (remainingDurationMinutes > 60) {
             durationMinimum = 60;
-        //TODO: Fix this.
+        // TODO: Fix this.
         } else if (remainingDurationMinutes > 30) {
             durationMinimum = 30;
         } else {
@@ -411,8 +482,12 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds, warmupLe
 
     if (req.query.active) {
         if (req.query.active === 0) {
-            warmupQuery.where('active', 0);
+            warmupQuery.where('active', 1);
         }
+        //commenting this out for now because need to figure out what kind of prep each active step requires
+        // if (req.query.active > 1) {
+        //     warmupQuery.where('active', 2);
+        // }
     }
 
     // get all results, then index randomly into array
@@ -442,7 +517,7 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds, warmupLe
         } else {
             newRemainingDuration = remainingDuration - warmup.duration;
         }
-        //TODO: Could have 15 hour outings
+        // TODO: Could have 15 hour outings
         if (newRemainingDuration <= 15) {
             // add the warmup to the activity
             const finalResult = [];
@@ -558,6 +633,7 @@ export const findMainStep = (steps, outingDuration, stepDuration, callback) => {
         // If the event is occurring in over 15 minutes AND will conclude before the end
         // of the outing, we can use it as our main event
         if (minutesUntilEvent > 15 && stepEndTime < outingEndTime) {
+            step.timeSensitive = true;
             callback(step, minutesUntilEvent);
         } else {
             // Remove this step from candidate steps
