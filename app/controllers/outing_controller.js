@@ -528,7 +528,7 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds, warmupLe
         if (req.query.active === 0) {
             warmupQuery.where('active', 1);
         }
-        //commenting this out for now because need to figure out what kind of prep each active step requires
+        // commenting this out for now because need to figure out what kind of prep each active step requires
         // if (req.query.active > 1) {
         //     warmupQuery.where('active', 2);
         // }
@@ -537,8 +537,8 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds, warmupLe
     // get all results, then index randomly into array
     warmupQuery.exec((err, steps) => {
         if (steps === undefined || steps.length === 0) {
-            //TODO: In future should just check for steps in this case!
-            return res.status(404).send('There are no warmups in this area and therefore not enough activities :(');
+            // TODO: In future should just check for alternate steps instead!
+            return res.status(404).send('There are no warmups in this area :(');
         }
         const arrayLength = steps.length;
         const warmup = steps[Math.floor(Math.random() * arrayLength)];
@@ -547,6 +547,7 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds, warmupLe
         stepIds.push(warmup._id);
 
         let newRemainingDuration;
+        // If minutes until event have been specified
         if (warmupLength) {
             warmup.duration = Math.floor(warmupLength);
             const remainingDurationMinutes = remainingDuration - warmupLength;
@@ -561,7 +562,6 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds, warmupLe
         } else {
             newRemainingDuration = remainingDuration - warmup.duration;
         }
-        // TODO: Could have 15 hour outings
         if (newRemainingDuration <= 15) {
             // add the warmup to the activity
             const finalResult = [];
@@ -706,6 +706,7 @@ export const exploreArea = (req, res, outing, minutesUntilEvent, stepDuration, s
     const newRemainingDurationMinutes = (req.query.duration * 60) - minutesUntilEvent - stepDuration;
     const leftoverMinutes = newRemainingDurationMinutes % 30;
     let newRemainingDurationRounded;
+    // round to nearest half hour
     if (leftoverMinutes === 0) {
         newRemainingDurationRounded = newRemainingDurationMinutes;
     } else if (leftoverMinutes <= 15) {
@@ -758,8 +759,6 @@ export const initiateOuting = (req, res) => {
     };
     const stepQuery = Step.find(query);
 
-    // durations: { $in: [15] },
-
     // Activity level must not exceed walking if user specifies nonactive, and must include some activity if user specifies active.
     if (req.query.active) {
         if (req.query.active === 0) {
@@ -780,44 +779,42 @@ export const initiateOuting = (req, res) => {
         function (callback) {
             stepQuery.where('duration').eq(mainStepDurationMinutes);
             stepQuery.exec((err, steps) => {
+                // If there's no step for the specified time, try 1 hour less for main step
                 if (steps === undefined || steps.length === 0) {
                     mainStepDurationMinutes = mainStepDurationMinutes - 60;
                     console.log('main step duration' + mainStepDurationMinutes);
                     // If we have checked for all active outings within time range, remove active specification and try to just
-                    // find a normal outing
+                    // find a normal outing; reset mainStepDurationMinutes
                     if (mainStepDurationMinutes === 0) {
                         if (req.query.active > 0) {
                             stepQuery.active = { $in: [0, 1, 2] };
-                            console.log(stepQuery.active);
-                            console.log('main step' + mainStepDurationMinutes);
                             req.query.active = 0;
                             mainStepDurationMinutes = halfDurationMinutes;
                         } else {
                             return res.status(400).send('No activities in your area yet :( Upload one today!');
                         }
                     }
+                // Else, valid outing options were returned, so find an optimal one
                 } else {
                     // Randomly pull outing from array
                     mainStepOptions = steps;
-                    // // Go through steps until we find an acceptable one
                     findMainStep(steps, req.query.duration, mainStepDurationMinutes, function(step, minutesUntilEvent) {
-                        // once getting the main step back
+                        // Once we get the main step back, if step is null then no time sensitive step was appropriate for the given
+                        // time window, so we must go through steps until we find an acceptable one
                         if (step === null) {
                             mainStepOptions = undefined;
                             mainStepDurationMinutes = mainStepDurationMinutes - 60;
-                            // return res.status(404).send('There are activities in your area but not at this moment; try at different time of day?');
                         } else {
                             outing.push(step);
                             stepIds.push(step._id);
                             // If main event is a time sensitive event
                             if (minutesUntilEvent) {
-                                // if time before event is less than 15 minutes, send user to event immediately
+                                // if time before event is less than 15 minutes, send user to event immediately but have them walk around a bit
                                 // TODO: eventually account for driving time
                                 if (minutesUntilEvent <= 30) {
-                                    // have user walk around for a bit
                                     exploreArea(req, res, outing, minutesUntilEvent, step.duration, stepIds);
                                 } else if (minutesUntilEvent <= 60) {
-                                    // send user on warmup
+                                    // send user on warmup, warmup should take minutesUntilEvent time
                                     const newRemainingDurationMinutes = req.query.duration * 60 - step.duration;
                                     getWarmup(req, res, outing, newRemainingDurationMinutes, stepIds, minutesUntilEvent);
                                 } else {
@@ -972,18 +969,17 @@ export const skipStep = (req, res) => {
             skipStepQuery.where('warmup', 0);
         }
 
-        Step
-            .find(query).
-            exec((err, steps) => {
-                if (steps.length === 0) {
-                    return res.status(404).send('Alternate steps not found');
-                }
-                const arrayLength = steps.length;
-                const newStep = steps[Math.floor(Math.random() * arrayLength)];
 
-                updateOuting(req, res, currentOuting, currentOutingSteps, offendingStep, newStep);
-                res.send(newStep);
-            });
+        skipStepQuery.exec((err, steps) => {
+            if (steps.length === 0) {
+                return res.status(404).send('Alternate steps not found');
+            }
+            const arrayLength = steps.length;
+            const newStep = steps[Math.floor(Math.random() * arrayLength)];
+
+            updateOuting(req, res, currentOuting, currentOutingSteps, offendingStep, newStep);
+            res.send(newStep);
+        });
     });
 };
 
