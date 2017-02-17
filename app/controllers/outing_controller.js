@@ -2,7 +2,7 @@
 // import Routific  from 'routific';
 import async from 'async';
 import CONST from '../consts';
-import mongoose from 'mongoose';
+import nodemailer from 'nodemailer';
 import request from 'request';
 
 import Outing from '../models/outing_model';
@@ -12,6 +12,7 @@ import Step from '../models/step_model';
 import dotenv from 'dotenv';
 dotenv.config({ silent: true });
 
+const RouteController = require('../controllers/route_controller');
 const UserController = require('../controllers/user_controller');
 
 /*
@@ -189,25 +190,6 @@ export const findClosestStep = (startStep, outing, callback) => {
 
 
 /*
-This function adds an optimal calculated route to the DB.
-*/
-export const saveRoute = (routeToSave, routeToSaveIdString) => {
-    const route = new Route();
-
-    route.stepIds = routeToSaveIdString;
-    route.route = routeToSave;
-
-    route.save()
-        .then(result => {
-            console.log(result);
-        })
-    .catch(error => {
-        console.log(error);
-    });
-};
-
-
-/*
 This function optimizes the generated outing based on the user's current
 location so that the user is sent on the most efficient route. Temporarily using brute force;
 I hope to modify this soon to use a dynamic programming approach. Note: this will not currently work
@@ -220,61 +202,123 @@ export const optimizeRoute = (req, res, warmup, outing, stepIds) => {
     finalResult.push(outing[0]); // main step
 
     let firstStep = outing[0];
+    let firstStepIndex = 0;
     outing.splice(0, 1);
+    // If we go directly from the main step to the final step, no need to calculate route
+    if (outing.length === 1) {
+        finalResult.push(outing[0]);
+        saveAndReturnOuting(req, res, finalResult, stepIds);
+    } else {
+        const unsortedStepIds = stepIds.slice();
+        let sortedStepIds = stepIds.slice();
 
-    const unsortedStepIds = stepIds.slice();
-    let sortedStepIds = stepIds.slice();
-    const routeToSave = [];
-    let routeToSaveIdString = '';
-    // routeToSave.push(firstStep._id);
-    unsortedStepIds.splice(0, 1);
-    sortedStepIds.splice(0, 1);
+        // Remove the warmup from sortedStepIds and unsortedStepIds. TODO: change if warmup comes later
+        unsortedStepIds.splice(1, 1);
+        sortedStepIds.splice(1, 1);
+        const routeToSave = [];
+        let currentRouteArray = [];
 
-    async.whilst(
-        // test function
-        function() {
-            return outing.length > 0;
-        },
-        // iteratee function
-        function(callback) {
-            sortedStepIds = unsortedStepIds.slice();
-            sortedStepIds.sort();
-            let sortedStepIdString = '';
-            for (const id in sortedStepIds) {
-                sortedStepIdString += sortedStepIds[id];
-            }
-            routeToSaveIdString = sortedStepIdString;
-
-            // Check if this route already exists in the DB
-            const routeQuery = Route.find({ stepIds: sortedStepIdString });
-            routeQuery.exec((err, route) => {
-                if (route == null) {
-                    // If route is null, calculate the proper route using brute force
-                    findClosestStep(firstStep, outing, function(minDistance, minStepIndex) {
-                        routeToSave.push(outing[minStepIndex]._id);
-                        finalResult.push(outing[minStepIndex]);
-                        firstStep = outing[minStepIndex];
-                        outing.splice(minStepIndex, 1);
-                        unsortedStepIds.splice(minStepIndex, 1);
-                        callback(null, outing);
-                    });
-                } else {
-                    // Else, use the precalculated route from the DB
-                    for (let i = 0; i < route[0].route.length; i++) {
-                        const index = outing.indexOf(route[0].route[i]);
-                        finalResult.push(outing[index]);
-                        outing.splice(index, 1);
-                        unsortedStepIds.splice(index, 1);
-                    }
-                }
-            });
-        },
-        // callback function; called when test fails
-        function (err, outing) {
-            saveRoute(routeToSave, routeToSaveIdString);
-            saveAndReturnOuting(req, res, finalResult, stepIds);
+        // Prepare for saving final route in DB; note that this final route is SPECIFIC to the main step
+        let finalRouteToSaveIdString = '';
+        routeToSave.push(firstStep._id);
+        sortedStepIds.sort();
+        for (const id in sortedStepIds) {
+            finalRouteToSaveIdString += sortedStepIds[id];
         }
-    );
+
+        async.whilst(
+            // test function
+            function() {
+                return outing.length > 1;
+            },
+            // iteratee function
+            function(callback) {
+                // Create sortedStepIdString of all steps we need sorted, in order to check if it is in DB
+                sortedStepIds = unsortedStepIds.slice();
+                sortedStepIds.sort();
+                let sortedStepIdString = '';
+                for (const id in sortedStepIds) {
+                    sortedStepIdString += sortedStepIds[id];
+                }
+
+                // Check if this route already exists in the DB, starting at the designated firstStep
+                const routeQuery = Route.find({ stepIds: sortedStepIdString, startStep: firstStep._id });
+
+
+                routeQuery.exec((err, route) => {
+                    if (route.length === 0 || route === undefined) {
+
+                        // If route does not exist in DB, calculate the next best step using brute force
+                        findClosestStep(firstStep, outing, function(minDistance, minStepIndex) {
+                            // Add this next step to list of new routes to save
+                            routeToSave.push(outing[minStepIndex]._id);
+
+                            // Add next step to final outing; update firstStep to be this step
+                            finalResult.push(outing[minStepIndex]);
+                            firstStep = outing[minStepIndex];
+                            outing.splice(minStepIndex, 1);
+                            unsortedStepIds.splice(firstStepIndex, 1);
+                            firstStepIndex = minStepIndex;
+
+                            callback(null, outing);
+                        });
+                    } else {
+                        // Else, use the precalculated route from the DB
+                        // For each step ID in route, add it to finalResult
+                        for (let i = 0; i < route[0].route.length; i++) {
+                            let index;
+                            for (let j = 0; j < unsortedStepIds.length; j++) {
+                                if (route[0].route[i].toString() == unsortedStepIds[j].toString()) {
+                                    index = j;
+                                    finalResult.push(outing[index]);
+                                    unsortedStepIds.splice(index, 1);
+                                    outing.splice(index, 1);
+                                }
+                            }
+                        }
+
+                        // Notify myself!
+                        const transporter = nodemailer.createTransport('SMTP', {
+                            service: 'Gmail',
+                            auth: {
+                                user: process.env.APP_EMAIL,
+                                pass: process.env.APP_PASSWORD,
+                            },
+                        });
+
+                        // email info
+                        const mailOptions = {
+                            from: `"Outing Buddy App 👥" <${process.env.APP_EMAIL}>`, // sender address
+                            to: `${process.env.APP_EMAIL}`,
+                            subject: 'Previous route used!',
+                            text: `Used a previous route! ${route[0].route} Woohoo!`,
+                        };
+
+                        // send mail with defined transport object
+                        transporter.sendMail(mailOptions, function(error, info) {
+                            if (error) {
+                                return console.log(error);
+                            }
+                        });
+                        callback(null, outing);
+                    }
+                });
+            },
+            // callback function; called when test fails
+            function (err, outing) {
+
+                // Add final step to outing, if outing still has one more step
+                if (outing.length !== 0) {
+                    finalResult.push(outing[0]);
+                    routeToSave.push(outing[0]._id);
+                }
+
+                // Save calculated route; save and return outing
+                RouteController.saveRoute(routeToSave[0], finalRouteToSaveIdString, routeToSave);
+                saveAndReturnOuting(req, res, finalResult, stepIds);
+            }
+        );
+    }
 };
 
 /*
