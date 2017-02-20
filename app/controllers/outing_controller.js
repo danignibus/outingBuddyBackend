@@ -403,7 +403,7 @@ export const optimizeRouteXL = (req, res, warmup, outing, stepIds) => {
 This function fills in the remainder of the outing, based on the duration and location of
 the main step and the warmup.
 */
-export const completeOuting = (req, res, warmup, outing, remainingDurationMinutes, stepIds) => {
+export const completeOuting = (req, res, warmup, outing, remainingDurationMinutes, stepIds, moneyToSpend) => {
     // get acceptable travel radius from client
     // NOTE: must have enough populated outings for small radii to work!
     let miles;
@@ -450,6 +450,7 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
             warmup: 0,
             approved: 1,
             repeat_start: null,
+            minPrice: { $lte: moneyToSpend },
         };
 
         // if (req.query.active === 0) {
@@ -473,7 +474,7 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
             // TODO (potentially): if steps returned is equal to 0, query around home's coordinates (rather than main activity's coordinates)
             if (steps.length === 0 || steps === undefined) {
                 console.log('got insufficient activities');
-                return res.status(404).send('Insufficient activities found in area; try lowering duration?');
+                return res.status(404).send('Insufficient activities found in area; try lowering duration or increasing price?');
             }
 
             const arrayLength = steps.length;
@@ -487,10 +488,19 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
             }
             step.duration = midpointDuration;
 
+            if (step.avgPrice <= moneyToSpend) {
+                step.spend = step.avgPrice;
+                moneyToSpend -= step.avgPrice;
+            } else {
+                // For now, just take the min price
+                step.spend = step.minPrice;
+                moneyToSpend -= step.minPrice;
+            }
+
             outing.push(step);
             stepIds.push(step._id);
             const newRemainingDuration = remainingDurationMinutes - step.duration;
-            completeOuting(req, res, warmup, outing, newRemainingDuration, stepIds);
+            completeOuting(req, res, warmup, outing, newRemainingDuration, stepIds, moneyToSpend);
         });
     }
 };
@@ -500,7 +510,7 @@ This function pulls a warmup (flagged as a 1 in the warmup field) from the datab
 within a close range to the main activity of the outing. When the outing is fully generated, the
 user is sent on this warmup prior to the rest of the steps in the outing.
 */
-export const getWarmup = (req, res, outing, remainingDuration, stepIds, warmupLength) => {
+export const getWarmup = (req, res, outing, remainingDuration, stepIds, moneyToSpend, warmupLength) => {
     // get close by activity for warmup
     // TODO: change this to .5 once we populate warmups!
     console.log('remaining duration at warmup is ' + remainingDuration);
@@ -520,6 +530,7 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds, warmupLe
         warmup: 1,
         approved: 1,
         repeat_start: null,
+        minPrice: { $lte: moneyToSpend },
     };
 
     const warmupQuery = Step.find(query);
@@ -546,6 +557,15 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds, warmupLe
         // obj is the warmup activity; all warmups are 1 hour duration
         stepIds.push(warmup._id);
 
+        if (warmup.avgPrice <= moneyToSpend) {
+            warmup.spend = warmup.avgPrice;
+            moneyToSpend -= warmup.avgPrice;
+        } else {
+            // For now, just take the min price
+            warmup.spend = warmup.minPrice;
+            moneyToSpend -= warmup.minPrice;
+        }
+
         let newRemainingDuration;
         // If minutes until event have been specified
         if (warmupLength) {
@@ -570,12 +590,12 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds, warmupLe
             // return
             saveAndReturnOuting(req, res, finalResult, stepIds);
         } else {
-            completeOuting(req, res, warmup, outing, newRemainingDuration, stepIds);
+            completeOuting(req, res, warmup, outing, newRemainingDuration, stepIds, moneyToSpend);
         }
     });
 };
 
-export const fillBeforeMain = (req, res, outing, timeBeforeMain, stepIds) => {
+export const fillBeforeMain = (req, res, outing, timeBeforeMain, stepIds, moneyToSpend) => {
     // get close by activity for warmup
     // TODO: change this to .5 once we populate warmups!
     let miles;
@@ -600,6 +620,7 @@ export const fillBeforeMain = (req, res, outing, timeBeforeMain, stepIds) => {
         approved: 1,
         duration: timeBeforeMain,
         repeat_start: null,
+        minPrice: { $lte: moneyToSpend },
     };
 
     const fillStepQuery = Step.find(query);
@@ -615,6 +636,15 @@ export const fillBeforeMain = (req, res, outing, timeBeforeMain, stepIds) => {
         const arrayLength = steps.length;
         const step = steps[Math.floor(Math.random() * arrayLength)];
 
+        if (step.avgPrice <= moneyToSpend) {
+            step.spend = step.avgPrice;
+            moneyToSpend -= step.avgPrice;
+        } else {
+            // For now, just take the min price
+            step.spend = step.minPrice;
+            moneyToSpend -= step.minPrice;
+        }
+
         // obj is the warmup activity; all warmups are 1 hour duration
         stepIds.push(step._id);
 
@@ -628,7 +658,7 @@ export const fillBeforeMain = (req, res, outing, timeBeforeMain, stepIds) => {
             // return
             saveAndReturnOuting(req, res, finalResult, stepIds);
         } else {
-            completeOuting(req, res, step, outing, newRemainingDuration, stepIds);
+            completeOuting(req, res, step, outing, newRemainingDuration, stepIds, moneyToSpend);
         }
     });
 };
@@ -696,7 +726,7 @@ This function is called when a user's next step is a time sensitive step that is
 30 minutes. In this case, the user does not have enough time to partake in a traditional longer warmup, and
 so is directed to just walk around the area as their "warmup" before the time sensitive event begins.
 */
-export const exploreArea = (req, res, outing, minutesUntilEvent, stepDuration, stepIds) => {
+export const exploreArea = (req, res, outing, minutesUntilEvent, stepDuration, stepIds, moneyToSpend) => {
     // TODO: add in location of first step here
     const exploreStep = {
         title: 'Explore the area!',
@@ -714,7 +744,7 @@ export const exploreArea = (req, res, outing, minutesUntilEvent, stepDuration, s
     } else {
         newRemainingDurationRounded = newRemainingDurationMinutes + (30 - leftoverMinutes);
     }
-    completeOuting(req, res, exploreStep, outing, newRemainingDurationRounded, stepIds);
+    completeOuting(req, res, exploreStep, outing, newRemainingDurationRounded, stepIds, moneyToSpend);
 };
 
 /*
@@ -729,6 +759,14 @@ export const initiateOuting = (req, res) => {
     const halfDurationMinutes = halfDuration * 60;
     const outing = [];
     const stepIds = [];
+
+    let moneyToSpend;
+    const price = req.query.price;
+    if (req.query.price) {
+        moneyToSpend = CONST[price];
+    } else {
+        moneyToSpend = CONST.ABOVE_50;
+    }
 
     // If user has specified miles, account for them. Otherwise, assume everything should be in walking distance.
     // TODO: change walking distance radius to 1, once we have added enough activities.
@@ -756,6 +794,7 @@ export const initiateOuting = (req, res) => {
         },
         warmup: 0,
         approved: 1,
+        minPrice: { $lte: moneyToSpend },
     };
     const stepQuery = Step.find(query);
 
@@ -775,14 +814,13 @@ export const initiateOuting = (req, res) => {
 
     // Find significant outing (i.e. at least half time of outing)
     async.whilst(
-        function () { return mainStepOptions === undefined },
+        function () { return mainStepOptions === undefined; },
         function (callback) {
             stepQuery.where('duration').eq(mainStepDurationMinutes);
             stepQuery.exec((err, steps) => {
                 // If there's no step for the specified time, try 1 hour less for main step
                 if (steps === undefined || steps.length === 0) {
                     mainStepDurationMinutes = mainStepDurationMinutes - 60;
-                    console.log('main step duration' + mainStepDurationMinutes);
                     // If we have checked for all active outings within time range, remove active specification and try to just
                     // find a normal outing; reset mainStepDurationMinutes
                     if (mainStepDurationMinutes === 0) {
@@ -805,6 +843,14 @@ export const initiateOuting = (req, res) => {
                             mainStepOptions = undefined;
                             mainStepDurationMinutes = mainStepDurationMinutes - 60;
                         } else {
+                            if (step.avgPrice <= moneyToSpend) {
+                                step.spend = step.avgPrice;
+                                moneyToSpend -= step.avgPrice;
+                            } else {
+                                // For now, just take the min price
+                                step.spend = step.minPrice;
+                                moneyToSpend -= step.minPrice;
+                            }
                             outing.push(step);
                             stepIds.push(step._id);
                             // If main event is a time sensitive event
@@ -812,15 +858,15 @@ export const initiateOuting = (req, res) => {
                                 // if time before event is less than 15 minutes, send user to event immediately but have them walk around a bit
                                 // TODO: eventually account for driving time
                                 if (minutesUntilEvent <= 30) {
-                                    exploreArea(req, res, outing, minutesUntilEvent, step.duration, stepIds);
+                                    exploreArea(req, res, outing, minutesUntilEvent, step.duration, stepIds, moneyToSpend);
                                 } else if (minutesUntilEvent <= 60) {
                                     // send user on warmup, warmup should take minutesUntilEvent time
                                     const newRemainingDurationMinutes = req.query.duration * 60 - step.duration;
-                                    getWarmup(req, res, outing, newRemainingDurationMinutes, stepIds, minutesUntilEvent);
+                                    getWarmup(req, res, outing, newRemainingDurationMinutes, stepIds, moneyToSpend, minutesUntilEvent);
                                 } else {
                                     // fill time before event with something larger
                                     const timeBeforeMain = Math.ceil(minutesUntilEvent / 60);
-                                    fillBeforeMain(req, res, outing, timeBeforeMain, stepIds);
+                                    fillBeforeMain(req, res, outing, timeBeforeMain, stepIds, moneyToSpend);
                                 }
                             // Else, it's a non time sensitive event so just fill as we have been filling.
                             // Note: we'll eventually want to be more time sensitive anyway so this needs to be modified.
@@ -829,7 +875,7 @@ export const initiateOuting = (req, res) => {
                                 if (newRemainingDuration === 0) {
                                     saveAndReturnOuting(req, res, outing, stepIds);
                                 } else {
-                                    getWarmup(req, res, outing, newRemainingDuration, stepIds);
+                                    getWarmup(req, res, outing, newRemainingDuration, stepIds, moneyToSpend);
                                 }
                             }
                         }
