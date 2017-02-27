@@ -13,11 +13,14 @@ export const createStep = (req, res) => {
 
     step.active = req.query.active || 0;
     step.author = req.user._id;
+    step.avgPrice = req.query.avgPrice;
     step.description = req.query.description;
     step.duration = req.query.duration;
     step.image = req.query.image;
     step.loc.coordinates = [req.query.lng, req.query.lat];
     step.loc.type = 'Point';
+    step.maxPrice = req.query.maxPrice;
+    step.minPrice = req.query.minPrice;
     step.participants = req.query.participants || 'UNLIMITED';
     step.title = req.query.title;
     step.warmup = req.query.warmup || 0;

@@ -246,7 +246,7 @@ export const optimizeRoute = (req, res, warmup, outing, stepIds) => {
 
 
                 routeQuery.exec((err, route) => {
-                    if (route.length === 0 || route === undefined) {
+                    if (route === undefined || route.length === 0) {
 
                         // If route does not exist in DB, calculate the next best step using brute force
                         findClosestStep(firstStep, outing, function(minDistance, minStepIndex) {
@@ -871,11 +871,48 @@ export const initiateOuting = (req, res) => {
                             // Else, it's a non time sensitive event so just fill as we have been filling.
                             // Note: we'll eventually want to be more time sensitive anyway so this needs to be modified.
                             } else {
-                                const newRemainingDuration = req.query.duration * 60 - step.duration;
+                                let newRemainingDuration = req.query.duration * 60 - step.duration;
                                 if (newRemainingDuration === 0) {
                                     saveAndReturnOuting(req, res, outing, stepIds);
                                 } else {
-                                    getWarmup(req, res, outing, newRemainingDuration, stepIds, moneyToSpend);
+                                    // If step has a linked pre/post which fits within the outing, add this step
+                                    if (step.linkedSteps[0] !== undefined) {
+                                        // TODO: randomize
+                                        const linkedStepCandidate = step.linkedSteps[0];
+                                        const linkedStepCandidateDuration = linkedStepCandidate.duration;
+                                        const linkedStepCandidatePrice = linkedStepCandidate.minPrice;
+
+                                        // If linked step duration fits within the given timeframe and there is enough money for step, include linked step in the outing
+                                        // TODO: check durationRange, not just avg Duration
+                                        const checkDuration = newRemainingDuration - linkedStepCandidateDuration >= 0;
+                                        const checkPrice = moneyToSpend - linkedStepCandidatePrice >= 0;
+                                        if (checkDuration && checkPrice) {
+                                            Step.findOne({ _id: linkedStepCandidate._id }).exec((err, linkedStep) => {
+                                                if (err) {
+                                                    return res.send();
+                                                }
+                                                linkedStep.spend = linkedStepCandidatePrice;
+                                                linkedStep.duration = linkedStepCandidateDuration;
+                                                outing.push(linkedStep);
+                                                stepIds.push(linkedStep._id);
+                                                moneyToSpend -= linkedStepCandidatePrice;
+                                                newRemainingDuration -= linkedStepCandidateDuration;
+
+                                                if (newRemainingDuration === 0) {
+                                                    saveAndReturnOuting(req, res, outing, stepIds);
+                                                } else {
+                                                    // TODO else call getWarmup
+                                                    getWarmup(req, res, outing, newRemainingDuration, stepIds, moneyToSpend);
+                                                }
+                                            });
+                                        // Otherwise, the linked step doesn't work
+                                        } else {
+                                            getWarmup(req, res, outing, newRemainingDuration, stepIds, moneyToSpend);
+                                        }
+                                    // Else, we don't need to worry about linked steps, so continue without them
+                                    } else {
+                                        getWarmup(req, res, outing, newRemainingDuration, stepIds, moneyToSpend);
+                                    }
                                 }
                             }
                         }

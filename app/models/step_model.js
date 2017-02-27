@@ -1,5 +1,14 @@
 import mongoose, { Schema } from 'mongoose';
 
+const linkedStepSchema = new Schema({
+    _id: Schema.Types.ObjectId,
+    duration: Number,
+    rating: Number,
+    order: String,
+    minPrice: Number,
+    avgPrice: Number,
+});
+
 // create a schema for outings/description
 const StepSchema = new Schema({
     active: { type: Number, required: true },
@@ -10,6 +19,13 @@ const StepSchema = new Schema({
     duration: { type: Number, required: true },
     durationRange: [Number],
     image: String,
+    // linkedSteps: {
+    //     String: {
+    //         duration: Number,
+    //         rating: Number,
+    //     },
+    // },
+    linkedSteps: [linkedStepSchema],
     loc: {
         type: { type: String },
         coordinates: [Number],
