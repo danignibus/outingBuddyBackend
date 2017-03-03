@@ -200,10 +200,13 @@ export const optimizeRoute = (req, res, warmup, outing, stepIds) => {
 
     finalResult.push(warmup);
     finalResult.push(outing[0]); // main step
-
     let firstStep = outing[0];
+    let hasLinkedPost = outing[0].linkedPost === true;
     let firstStepIndex = 0;
+    // remove main step from the outing
     outing.splice(0, 1);
+
+
     // If we go directly from the main step to the final step, no need to calculate route
     if (outing.length === 1) {
         finalResult.push(outing[0]);
@@ -213,8 +216,9 @@ export const optimizeRoute = (req, res, warmup, outing, stepIds) => {
         let sortedStepIds = stepIds.slice();
 
         // Remove the warmup from sortedStepIds and unsortedStepIds. TODO: change if warmup comes later
-        unsortedStepIds.splice(1, 1);
-        sortedStepIds.splice(1, 1);
+        const warmupIndex = stepIds.indexOf(warmup._id);
+        unsortedStepIds.splice(warmupIndex, 1);
+        sortedStepIds.splice(warmupIndex, 1);
         const routeToSave = [];
         let currentRouteArray = [];
 
@@ -233,6 +237,19 @@ export const optimizeRoute = (req, res, warmup, outing, stepIds) => {
             },
             // iteratee function
             function(callback) {
+
+                // If there is a linked post activity after the main, add it to the outing without optimizing the route
+                if (hasLinkedPost) {
+                    // remove main step from stepIds and just start query at the post
+                    finalResult.push(outing[0]);
+                    routeToSave.push(outing[0]);
+                    unsortedStepIds.splice(0, 1);
+
+                    // Set firstStep equal to the linked post, then remove it from steps to compare distances to
+                    firstStep = outing[0];
+                    outing.splice(0, 1);
+                    hasLinkedPost = false;
+                }
                 // Create sortedStepIdString of all steps we need sorted, in order to check if it is in DB
                 sortedStepIds = unsortedStepIds.slice();
                 sortedStepIds.sort();
@@ -250,14 +267,19 @@ export const optimizeRoute = (req, res, warmup, outing, stepIds) => {
 
                         // If route does not exist in DB, calculate the next best step using brute force
                         findClosestStep(firstStep, outing, function(minDistance, minStepIndex) {
+
                             // Add this next step to list of new routes to save
                             routeToSave.push(outing[minStepIndex]._id);
 
                             // Add next step to final outing; update firstStep to be this step
                             finalResult.push(outing[minStepIndex]);
                             firstStep = outing[minStepIndex];
+                            console.log('min step index event' + outing[minStepIndex]);
                             outing.splice(minStepIndex, 1);
+                            console.log('unsorted before splicing' + unsortedStepIds);
+                            // TODO: I think below is a bug? Shouldn't it be setting firstStepIndex first
                             unsortedStepIds.splice(firstStepIndex, 1);
+                            console.log('unsorted after splicing' + unsortedStepIds);
                             firstStepIndex = minStepIndex;
 
                             callback(null, outing);
@@ -895,6 +917,7 @@ export const initiateOuting = (req, res) => {
                                                 linkedStep.duration = linkedStepCandidateDuration;
                                                 outing.push(linkedStep);
                                                 stepIds.push(linkedStep._id);
+                                                outing[0].linkedPost = true;
                                                 moneyToSpend -= linkedStepCandidatePrice;
                                                 newRemainingDuration -= linkedStepCandidateDuration;
 

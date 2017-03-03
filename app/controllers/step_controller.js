@@ -17,6 +17,14 @@ export const createStep = (req, res) => {
     step.description = req.query.description;
     step.duration = req.query.duration;
     step.image = req.query.image;
+    step.linkedSteps = [{
+        _id: req.query.linkedStepId,
+        avgPrice: req.query.linkedStepAvgPrice,
+        duration: req.query.linkedStepDuration,
+        minPrice: req.query.linkedStepMinPrice,
+        order: req.query.linkedStepOrder,
+        score: 5,
+    }];
     step.loc.coordinates = [req.query.lng, req.query.lat];
     step.loc.type = 'Point';
     step.maxPrice = req.query.maxPrice;
@@ -50,7 +58,7 @@ export const createStep = (req, res) => {
         from: `"Outing Buddy App 👥" <${process.env.APP_EMAIL}>`, // sender address
         to: `${process.env.APP_EMAIL}`,
         subject: 'New step submission',
-        text: `Got a new step! 🐴🐴🐴 Title: ${step.title}. Description: ${step.description}. Duration: ${step.duration}. Coordinates: ${step.loc.coordinates}. Active: ${step.active}. Author: ${req.user.name}. Warmup: ${step.warmup}. Image: ${step.image}`,
+        text: `Got a new step! 🐴🐴🐴 Title: ${step.title}. Description: ${step.description}. Duration: ${step.duration}. Coordinates: ${step.loc.coordinates}. Active: ${step.active}. Author: ${req.user.name}. Warmup: ${step.warmup}. Image: ${step.image}. Linked steps: ${step.linkedSteps}. Prices: ${step.avgPrice}. ${step.maxPrice}. ${step.minPrice}.`,
     };
 
     // send mail with defined transport object

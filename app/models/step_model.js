@@ -2,11 +2,11 @@ import mongoose, { Schema } from 'mongoose';
 
 const linkedStepSchema = new Schema({
     _id: Schema.Types.ObjectId,
-    duration: Number,
-    rating: Number,
-    order: String,
-    minPrice: Number,
     avgPrice: Number,
+    duration: Number,
+    minPrice: Number,
+    order: String,
+    score: Number,
 });
 
 // create a schema for outings/description
@@ -25,6 +25,7 @@ const StepSchema = new Schema({
     //         rating: Number,
     //     },
     // },
+    linkedPost: Boolean,
     linkedSteps: [linkedStepSchema],
     loc: {
         type: { type: String },
