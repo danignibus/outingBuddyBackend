@@ -37,3 +37,18 @@ export const addReflection = (req, res) => {
             res.send(error);
         });
 };
+
+/*
+This function receives a reflection ID and returns the corresponding reflection.
+*/
+export const getReflection = (req, res) => {
+    Reflection.findOne({ _id: req.query.reflectionId }).exec((err, reflection) => {
+        if (err) {
+            res.status(404).send('No such reflection in DB; check reflection ID');
+        } else {
+            res.json({
+                reflection,
+            });
+        }
+    });
+};

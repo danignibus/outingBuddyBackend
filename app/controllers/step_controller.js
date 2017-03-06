@@ -8,7 +8,7 @@ dotenv.config({ silent: true });
 This function receives data from the client for a step submitted by a user,
 and stores this step in the Mongo database.
 */
-export const createStep = (req, res) => {
+export const createStep = (req, res, callback) => {
     const step = new Step();
 
     step.active = req.query.active || 0;
@@ -17,14 +17,6 @@ export const createStep = (req, res) => {
     step.description = req.query.description;
     step.duration = req.query.duration;
     step.image = req.query.image;
-    step.linkedSteps = [{
-        _id: req.query.linkedStepId,
-        avgPrice: req.query.linkedStepAvgPrice,
-        duration: req.query.linkedStepDuration,
-        minPrice: req.query.linkedStepMinPrice,
-        order: req.query.linkedStepOrder,
-        score: 5,
-    }];
     step.loc.coordinates = [req.query.lng, req.query.lat];
     step.loc.type = 'Point';
     step.maxPrice = req.query.maxPrice;
@@ -36,7 +28,11 @@ export const createStep = (req, res) => {
 
     step.save()
         .then(result => {
-            res.send(result);
+            if (!req.query.isLinkedStep) {
+                res.send(result);
+            } else {
+                callback(result);
+            }
         })
     .catch(error => {
         res.send(error);
@@ -63,8 +59,82 @@ export const createStep = (req, res) => {
 
     // send mail with defined transport object
     transporter.sendMail(mailOptions, function(error, info){
-        if(error){
+        if (error) {
             return console.log(error);
         }
     });
+};
+
+/*
+This function adds a linked step to a step which already exists in the database. It either creates
+the linked step if this step does not already exist, or sets the linked step equivalent to a current
+step within the database.
+*/
+export const addLinkedStep = (req, res) => {
+    const mainStep = req.query.stepId;
+
+    // If step has been already created
+    if (req.query.linkedStepId) {
+        // get the linked step from DB
+        Step.findOne({ _id: req.query.linkedStepId }).exec((err, linkedStep) => {
+            const linkedStepToAdd = {
+                _id: req.query.linkedStepId,
+                avgPrice: linkedStep.avgPrice,
+                duration: linkedStep.duration,
+                minPrice: linkedStep.minPrice,
+                order: req.query.linkedStepOrder,
+                score: 5,
+            };
+
+            // Get the main step, and add this linkedStep to the main
+            Step.findOneAndUpdate(
+                { _id: mainStep },
+                { $push: { linkedSteps: linkedStepToAdd } },
+                    (err, step) => {
+                        if (err) {
+                            console.log('Error adding linkedStep');
+                        } else {
+                            res.send(step);
+                        }
+                    }
+            );
+        });
+
+    // Else, linked step is also a new step.
+    } else {
+        createStep(req, res, function (resultingStep) {
+            const linkedStep = {
+                _id: resultingStep._id,
+                avgPrice: resultingStep.avgPrice,
+                duration: resultingStep.duration,
+                minPrice: resultingStep.minPrice,
+                order: req.query.linkedStepOrder,
+                score: 5,
+            };
+
+            Step.findOneAndUpdate(
+                { _id: mainStep },
+                { $push: { linkedSteps: linkedStep } },
+                    (err, step) => {
+                        if (err) {
+                            console.log('Error adding linkedStep');
+                        } else {
+                            return res.send(step);
+                        }
+                    }
+            );
+        });
+    }
+};
+
+/*
+This function handles a step submission based on whether it is a submission for a linked step or a normal step.
+*/
+export const submitStep = (req, res) => {
+    // If step is a linked step
+    if (req.query.isLinkedStep) {
+        addLinkedStep(req, res);
+    } else {
+        createStep(req, res);
+    }
 };

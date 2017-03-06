@@ -19,12 +19,6 @@ const StepSchema = new Schema({
     duration: { type: Number, required: true },
     durationRange: [Number],
     image: String,
-    // linkedSteps: {
-    //     String: {
-    //         duration: Number,
-    //         rating: Number,
-    //     },
-    // },
     linkedPost: Boolean,
     linkedSteps: [linkedStepSchema],
     loc: {

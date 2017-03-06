@@ -30,14 +30,15 @@ router.route('/randomStep')
     .get(requireAuth, Outings.getRandomStep);
 
 router.route('/reflection')
-	.post(requireAuth, Reflections.addReflection);
+	.post(requireAuth, Reflections.addReflection)
+	.get(requireAuth, Reflections.getReflection);
 
 router.route('/signup')
     .get(Users.signup);
 
 // example post from postman: http://localhost:9090/api/step?title=River&description=test&lat=45.6345934&lng=23.234234
 router.route('/step')
-	.post(requireAuth, Steps.createStep);
+	.post(requireAuth, Steps.submitStep);
 
 // example post from postman: http://localhost:9090/api/user?outingId=5836092e061b4b1a1b2b85cf&currentStep=1
 router.route('/user')
