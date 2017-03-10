@@ -2,6 +2,7 @@ import Step from '../models/step_model';
 import dotenv from 'dotenv';
 import nodemailer from 'nodemailer';
 
+const fileSystem = require('fs');
 dotenv.config({ silent: true });
 
 /*
@@ -125,6 +126,52 @@ export const addLinkedStep = (req, res) => {
             );
         });
     }
+};
+
+/*
+This function searches for major words within the given title for a new step for
+steps that are available within the specified area.
+*/
+export const searchStep = (req, res) => {
+    const submittedTitle = req.query.title;
+    const submittedCoordinates = [req.query.lng, req.query.lat];
+    const appRoot = process.cwd();
+    // Get all stopWords, read into an array
+    // Source: http://www.lextek.com/manuals/onix/stopwords1.html
+    const data = fileSystem.readFileSync(`${appRoot}/app/stopWords.txt`).toString().split('\n');
+
+    const splitTitle = submittedTitle.match(/[^\s]+|\s+[^\s+]$/g);
+    const wordsToSearch = [];
+    for (const word in splitTitle) {
+        // Need to trim word
+        const trimmed = splitTitle[word].toLowerCase();
+        if (data.indexOf(trimmed) === -1) {
+            wordsToSearch.push(trimmed);
+        }
+    }
+    let searchString = '';
+    for (const searchWord in wordsToSearch) {
+        searchString += `${wordsToSearch[searchWord]} `;
+    }
+
+    const miles = 2;
+    const radiusInRadians = miles / 3959;
+
+    const query = {
+        loc: {
+            $geoWithin: {
+                $centerSphere: [submittedCoordinates, radiusInRadians],
+            },
+        },
+        $text: { $search: searchString, $caseSensitive: false },
+    };
+
+    Step.find(query)
+       .limit(10)
+       .exec(function(err, steps) {
+            res.send(steps);
+       });
+
 };
 
 /*

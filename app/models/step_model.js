@@ -34,6 +34,8 @@ const StepSchema = new Schema({
     spend: Number,
     warmup: Number,
 });
+StepSchema.index({ title: 'text' });
+
 
 // create model class
 const Step = mongoose.model('Step', StepSchema);
