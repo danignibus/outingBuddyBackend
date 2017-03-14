@@ -918,6 +918,7 @@ export const initiateOuting = (req, res) => {
                                                 outing.push(linkedStep);
                                                 stepIds.push(linkedStep._id);
                                                 outing[0].linkedPost = true;
+                                                outing[0].linkedPostId = linkedStep._id;
                                                 moneyToSpend -= linkedStepCandidatePrice;
                                                 newRemainingDuration -= linkedStepCandidateDuration;
 

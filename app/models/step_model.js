@@ -6,6 +6,7 @@ const linkedStepSchema = new Schema({
     duration: Number,
     minPrice: Number,
     order: String,
+    totalScores: Number,
     score: Number,
 });
 

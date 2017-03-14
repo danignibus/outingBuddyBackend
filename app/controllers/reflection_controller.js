@@ -2,6 +2,7 @@ import Reflection from '../models/reflection_model';
 import dotenv from 'dotenv';
 dotenv.config({ silent: true });
 const OutingController = require('../controllers/outing_controller');
+const StepController = require('../controllers/step_controller');
 const UserController = require('../controllers/user_controller');
 
 /*
@@ -31,6 +32,7 @@ export const addReflection = (req, res) => {
                 res.status(status).send(message);
                 if (status === 200) {
                     UserController.updateCompletedOutings(req.user._id, result._id, req.query.rating, outing, reflection.date);
+                    StepController.updateLinkedSteps(req.query.rating, outing);
                 }
             });
         }).catch(error => {

@@ -76,7 +76,8 @@ export const addLinkedStep = (req, res) => {
 
     // If step has been already created
     if (req.query.linkedStepId) {
-        // get the linked step from DB
+        // get the linked step from DB, add with a score of 5 and total scorers 1 (since presumably, the person adding this step as a linked step
+        // thinks the two are paired well)
         Step.findOne({ _id: req.query.linkedStepId }).exec((err, linkedStep) => {
             const linkedStepToAdd = {
                 _id: req.query.linkedStepId,
@@ -85,19 +86,26 @@ export const addLinkedStep = (req, res) => {
                 minPrice: linkedStep.minPrice,
                 order: req.query.linkedStepOrder,
                 score: 5,
+                totalScores: 1,
             };
 
             // Get the main step, and add this linkedStep to the main
             Step.findOneAndUpdate(
                 { _id: mainStep },
-                { $push: { linkedSteps: linkedStepToAdd } },
-                    (err, step) => {
-                        if (err) {
-                            console.log('Error adding linkedStep');
-                        } else {
-                            res.send(step);
-                        }
+                { $push: {
+                    linkedSteps: {
+                        $each: [linkedStepToAdd],
+                        $sort: { score: -1 },
+                    },
+                },
+            },
+                (err, step) => {
+                    if (err) {
+                        console.log('Error adding linkedStep');
+                    } else {
+                        res.send(step);
                     }
+                }
             );
         });
 
@@ -111,11 +119,20 @@ export const addLinkedStep = (req, res) => {
                 minPrice: resultingStep.minPrice,
                 order: req.query.linkedStepOrder,
                 score: 5,
+                totalScores: 1,
             };
 
+            // Add linked Steps, sort by descending
             Step.findOneAndUpdate(
                 { _id: mainStep },
-                { $push: { linkedSteps: linkedStep } },
+                {
+                    $push: {
+                        linkedSteps: {
+                            $each: [linkedStep],
+                            $sort: { score: -1 },
+                        },
+                    },
+                },
                     (err, step) => {
                         if (err) {
                             console.log('Error adding linkedStep');
@@ -167,11 +184,57 @@ export const searchStep = (req, res) => {
     };
 
     Step.find(query)
-       .limit(10)
+       .limit(5)
        .exec(function(err, steps) {
             res.send(steps);
        });
 
+};
+
+/*
+This function updates any edges between steps and linked steps within an outing based on the rating given to the overall outing
+by the user.
+*/
+export const updateLinkedSteps = (rating, outing) => {
+    // Loop through each step in outing and check whether it has a linkedPost
+    for (var i = 0; i < outing.detailedSteps.length; i++) {
+        // If a specific step in the outing had a linked post step associated with it, we want to update the edge's score between these two steps
+        if (outing.detailedSteps[i].linkedPost === true) {
+            const linkedPostId = outing.detailedSteps[i].linkedPostId;
+            // Get this linkedStep subdocument from within the main step's document
+            const linkedSteps = outing.detailedSteps[i].linkedSteps;
+
+            // perform fresh query on that linkedPostId (since it might have changed due to other users over the course of the outing)
+            Step.findOne({ _id: outing.detailedSteps[i]._id }, function(err, step) {
+                // Calculate new average score
+                const linkedStep = step.linkedSteps.id(linkedPostId);
+                const currentTotalScores = linkedStep.totalScores;
+                const currentScore = linkedStep.score;
+                const newAverageNumerator = parseInt(currentScore) * parseInt(currentTotalScores) + parseInt(rating);
+                const newAverageDenominator = parseInt(currentTotalScores) + 1;
+                const newAverageScore = newAverageNumerator * 1.0 / newAverageDenominator;
+
+                console.log(newAverageScore);
+                // Update linked step to have this score in DB
+                Step.findOneAndUpdate(
+                    { _id: step._id, 'linkedSteps._id': linkedPostId },
+                    {
+                        $set: {
+                            'linkedSteps.$.score': newAverageScore,
+                            'linkedSteps.$.totalScores': currentTotalScores + 1,
+                        },
+                    },
+                    function (err, result) {
+                        console.log(err);
+                        console.log('result' + result);
+                    }
+                );
+            });
+        }
+    }
+
+
+    // Sort all linkedSteps within the document afterwards
 };
 
 /*
