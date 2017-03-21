@@ -14,7 +14,7 @@ const linkedStepSchema = new Schema({
 const StepSchema = new Schema({
     active: { type: Number, required: true },
     approved: Number,
-    author: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    author: { type: Schema.Types.ObjectId, ref: 'User', required: false },
     avgPrice: Number,
     description: { type: [String], required: true },
     duration: { type: Number, required: true },

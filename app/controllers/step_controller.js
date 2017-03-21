@@ -150,6 +150,11 @@ This function searches for major words within the given title for a new step for
 steps that are available within the specified area.
 */
 export const searchStep = (req, res) => {
+    if (! req.query.title) {
+        res.status(404).send('Title of step to search not specified');
+    } else if (! req.query.lat || !req.query.lng) {
+        res.status(404).send('Lat or lng of step to search not specified');
+    }
     const submittedTitle = req.query.title;
     const submittedCoordinates = [req.query.lng, req.query.lat];
     const appRoot = process.cwd();
@@ -188,7 +193,34 @@ export const searchStep = (req, res) => {
        .exec(function(err, steps) {
             res.send(steps);
        });
+};
 
+/*
+Given the coordinates of a step that has just been created, returns the names and IDs of candidate related linked post
+steps within 2 miles which may be appropriate to add to the step.
+*/
+export const getCandidateLinkedPosts = (req, res) => {
+    if (! req.query.lat || !req.query.lng) {
+        res.status(404).send('Lat or lng of step to search not specified');
+    }
+    const submittedCoordinates = [req.query.lng, req.query.lat];
+
+    const miles = 2;
+    const radiusInRadians = miles / 3959;
+
+    const query = {
+        loc: {
+            $geoWithin: {
+                $centerSphere: [submittedCoordinates, radiusInRadians],
+            },
+        },
+    };
+
+    Step.find(query)
+       .limit(5)
+       .exec(function(err, steps) {
+            res.send(steps);
+       });
 };
 
 /*
@@ -214,21 +246,12 @@ export const updateLinkedSteps = (rating, outing) => {
                 const newAverageDenominator = parseInt(currentTotalScores) + 1;
                 const newAverageScore = newAverageNumerator * 1.0 / newAverageDenominator;
 
-                console.log(newAverageScore);
                 // Update linked step to have this score in DB
-                Step.findOneAndUpdate(
-                    { _id: step._id, 'linkedSteps._id': linkedPostId },
-                    {
-                        $set: {
-                            'linkedSteps.$.score': newAverageScore,
-                            'linkedSteps.$.totalScores': currentTotalScores + 1,
-                        },
-                    },
-                    function (err, result) {
-                        console.log(err);
-                        console.log('result' + result);
-                    }
-                );
+                linkedStep.score = newAverageScore;
+                linkedStep.totalScores = currentTotalScores + 1;
+                step.save(function (err, result) {
+                    console.log('Updated linked step rating');
+                });
             });
         }
     }
@@ -238,7 +261,7 @@ export const updateLinkedSteps = (rating, outing) => {
 };
 
 /*
-This function handles a step submission based on whether it is a submission for a linked step or a normal step.
+This function handles a step POST based on whether it is a submission for a linked step or a normal step.
 */
 export const submitStep = (req, res) => {
     // If step is a linked step
@@ -246,5 +269,19 @@ export const submitStep = (req, res) => {
         addLinkedStep(req, res);
     } else {
         createStep(req, res);
+    }
+};
+
+/*
+This function handles a step GET based on whether client is checking for duplicate steps or querying for potential
+linked post steps.
+*/
+export const getPotentialSteps = (req, res) => {
+    if (req.query.getPotentialDuplicates) {
+        searchStep(req, res);
+    } else if (req.query.getPotentialLinkedSteps) {
+        getCandidateLinkedPosts(req, res);
+    } else {
+        res.status(404).send('Must specify whether getting potential duplicates or getting potential linked steps; refer to documentation');
     }
 };

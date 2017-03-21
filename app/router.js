@@ -38,7 +38,7 @@ router.route('/signup')
 
 // example post from postman: http://localhost:9090/api/step?title=River&description=test&lat=45.6345934&lng=23.234234
 router.route('/step')
-	.get(requireAuth, Steps.searchStep)
+	.get(requireAuth, Steps.getPotentialSteps)
 	.post(requireAuth, Steps.submitStep);
 
 // example post from postman: http://localhost:9090/api/user?outingId=5836092e061b4b1a1b2b85cf&currentStep=1
