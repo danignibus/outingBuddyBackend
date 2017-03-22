@@ -232,6 +232,7 @@ export const updateLinkedSteps = (rating, outing) => {
     for (var i = 0; i < outing.detailedSteps.length; i++) {
         // If a specific step in the outing had a linked post step associated with it, we want to update the edge's score between these two steps
         if (outing.detailedSteps[i].linkedPost === true) {
+            console.log(outing.detailedSteps[i]);
             const linkedPostId = outing.detailedSteps[i].linkedPostId;
             // Get this linkedStep subdocument from within the main step's document
             const linkedSteps = outing.detailedSteps[i].linkedSteps;

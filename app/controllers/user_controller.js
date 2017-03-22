@@ -215,6 +215,7 @@ export const updateCompletedOutings = (userId, reflectionId, rating, outing, dat
             reflectionId,
             userRating,
             outingImage },
+            completedSteps: { $each: outing.stepIds },
         } },
         (err, user) => {
             if (err) {

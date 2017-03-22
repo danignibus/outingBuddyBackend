@@ -21,6 +21,7 @@ const StepSchema = new Schema({
     durationRange: [Number],
     image: String,
     linkedPost: Boolean,
+    linkedPostId: Schema.Types.ObjectId,
     linkedSteps: [linkedStepSchema],
     loc: {
         type: { type: String },

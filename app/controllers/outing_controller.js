@@ -8,6 +8,7 @@ import request from 'request';
 import Outing from '../models/outing_model';
 import Route from '../models/route_model';
 import Step from '../models/step_model';
+import User from '../models/user_model';
 
 import dotenv from 'dotenv';
 dotenv.config({ silent: true });
@@ -164,7 +165,6 @@ export const findClosestStep = (startStep, outing, callback) => {
     let minStepIndex;
     for (let i = 0; i < outing.length; i++) {
         if (outing[i] !== null) {
-
             // Calculate distance between coordinates of startStep and outingStep
             // source: http://www.movable-type.co.uk/scripts/latlong.html
             const R = 6371e3; // metres
@@ -244,7 +244,6 @@ export const optimizeRoute = (req, res, warmup, outing, stepIds) => {
                     finalResult.push(outing[0]);
                     routeToSave.push(outing[0]);
                     unsortedStepIds.splice(0, 1);
-
                     // Set firstStep equal to the linked post, then remove it from steps to compare distances to
                     firstStep = outing[0];
                     outing.splice(0, 1);
@@ -274,12 +273,9 @@ export const optimizeRoute = (req, res, warmup, outing, stepIds) => {
                             // Add next step to final outing; update firstStep to be this step
                             finalResult.push(outing[minStepIndex]);
                             firstStep = outing[minStepIndex];
-                            console.log('min step index event' + outing[minStepIndex]);
                             outing.splice(minStepIndex, 1);
-                            console.log('unsorted before splicing' + unsortedStepIds);
                             // TODO: I think below is a bug? Shouldn't it be setting firstStepIndex first
                             unsortedStepIds.splice(firstStepIndex, 1);
-                            console.log('unsorted after splicing' + unsortedStepIds);
                             firstStepIndex = minStepIndex;
 
                             callback(null, outing);
@@ -457,6 +453,12 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
             acceptableDurations.push(acceptableDurationsCounter);
             acceptableDurationsCounter -= 15;
         }
+        let excludedIds;
+        if (req.query.completedSteps !== undefined) {
+            excludedIds = req.query.completedSteps.concat(stepIds);
+        } else {
+            excludedIds = stepIds;
+        }
 
         // query for steps within a given radius and that have not already been added to the outing
         const query = {
@@ -466,7 +468,7 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
                 },
             },
             _id: {
-                $nin: stepIds,
+                $nin: excludedIds,
             },
             durationRange: { $in: acceptableDurations },
             warmup: 0,
@@ -540,6 +542,13 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds, moneyToS
     const radiusInRadians = miles / 3959;
     const jsonObject = outing[0].toJSON();
 
+    let excludedIds;
+    if (req.query.completedSteps !== undefined) {
+        excludedIds = req.query.completedSteps.concat(stepIds);
+    } else {
+        excludedIds = stepIds;
+    }
+
     const query = {
         loc: {
             $geoWithin: {
@@ -547,7 +556,7 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds, moneyToS
             },
         },
         _id: {
-            $nin: stepIds,
+            $nin: excludedIds,
         },
         warmup: 1,
         approved: 1,
@@ -629,6 +638,13 @@ export const fillBeforeMain = (req, res, outing, timeBeforeMain, stepIds, moneyT
     const radiusInRadians = miles / 3959;
     const jsonObject = outing[0].toJSON();
 
+    let excludedIds;
+    if (req.query.completedSteps !== undefined) {
+        excludedIds = req.query.completedSteps.concat(stepIds);
+    } else {
+        excludedIds = stepIds;
+    }
+
     const query = {
         loc: {
             $geoWithin: {
@@ -636,7 +652,7 @@ export const fillBeforeMain = (req, res, outing, timeBeforeMain, stepIds, moneyT
             },
         },
         _id: {
-            $nin: stepIds,
+            $nin: excludedIds,
         },
         warmup: 0,
         approved: 1,
@@ -1101,7 +1117,16 @@ export const validateOutingRequest = (req, res) => {
   //  } else if (req.query.duration > 6 || req.query.duration % 1 !== 0) {
         return res.status(400).send('Incorrect duration');
     } else {
-        initiateOuting(req, res);
+        if (process.env.NO_REPEAT_STEPS === 'true') {
+            console.log('got in here');
+            // Get list of past steps that user has participated in
+            User.findOne({ _id: req.user._id }).exec((err, user) => {
+                req.query.completedSteps = user.completedSteps;
+                initiateOuting(req, res);
+            });
+        } else {
+            initiateOuting(req, res);
+        }
     }
 };
 
