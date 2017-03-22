@@ -197,7 +197,7 @@ with time-sensitive events.
 */
 export const optimizeRoute = (req, res, warmup, outing, stepIds) => {
     const finalResult = [];
-
+    console.log('got to optimizeRoute');
     finalResult.push(warmup);
     finalResult.push(outing[0]); // main step
     let firstStep = outing[0];
@@ -421,9 +421,11 @@ export const optimizeRouteXL = (req, res, warmup, outing, stepIds) => {
 This function fills in the remainder of the outing, based on the duration and location of
 the main step and the warmup.
 */
-export const completeOuting = (req, res, warmup, outing, remainingDurationMinutes, stepIds, moneyToSpend) => {
+export const completeOuting = (req, res, warmup, outing, remainingDurationMinutes, stepIds, moneyToSpend, setDurationMinimum) => {
     // get acceptable travel radius from client
-    // NOTE: must have enough populated outings for small radii to work!
+    // must have enough populated outings for small radii to work!
+    console.log('got to complete outing');
+    console.log('remaining duration minutes' + remainingDurationMinutes);
     let miles;
     if (req.query.radius) {
         miles = req.query.radius;
@@ -432,7 +434,6 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
     }
     const radiusInRadians = miles / 3959;
     if (remainingDurationMinutes <= 15) {
-        // TODO: could have 15 min activities
         optimizeRoute(req, res, warmup, outing, stepIds);
     } else if (remainingDurationMinutes > 15) {
         const jsonObject = outing[0].toJSON();
@@ -441,14 +442,18 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
         const acceptableDurations = [];
         let durationMinimum;
         // We don't want to send user on too many small tasks.
-        if (remainingDurationMinutes > 60) {
-            durationMinimum = 60;
-        // TODO: Fix this.
-        } else if (remainingDurationMinutes > 30) {
-            durationMinimum = 30;
+        if (setDurationMinimum) {
+            if (remainingDurationMinutes > 60) {
+                durationMinimum = 60;
+            } else if (remainingDurationMinutes > 30) {
+                durationMinimum = 30;
+            } else {
+                durationMinimum = 0;
+            }
         } else {
             durationMinimum = 0;
         }
+
         while (acceptableDurationsCounter > durationMinimum) {
             acceptableDurations.push(acceptableDurationsCounter);
             acceptableDurationsCounter -= 15;
@@ -477,11 +482,6 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
             minPrice: { $lte: moneyToSpend },
         };
 
-        // if (req.query.active === 0) {
-        //     query.active = { $in: [0, 1] };
-        // }
-
-        console.log('remaining duration in complete outing is ' + remainingDurationMinutes);
         const stepQuery = Step.find(query);
 
         if (req.query.active) {
@@ -493,38 +493,54 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
                 stepQuery.active = { $in: [0, 1, 2, 3] };
             }
         }
-
         stepQuery.exec((err, steps) => {
             // TODO (potentially): if steps returned is equal to 0, query around home's coordinates (rather than main activity's coordinates)
             if (steps.length === 0 || steps === undefined) {
-                console.log('got insufficient activities');
-                return res.status(404).send('Insufficient activities found in area; try lowering duration or increasing price?');
-            }
-
-            const arrayLength = steps.length;
-            const step = steps[Math.floor(Math.random() * arrayLength)];
-            const availableDuration = step.durationRange;
-            let midpointIndex = Math.round((availableDuration.length - 1) / 2);
-            let midpointDuration = availableDuration[midpointIndex];
-            while (acceptableDurations.indexOf(midpointDuration) === -1) {
-                midpointIndex -= 1;
-                midpointDuration = availableDuration[midpointIndex];
-            }
-            step.duration = midpointDuration;
-
-            if (step.avgPrice <= moneyToSpend) {
-                step.spend = step.avgPrice;
-                moneyToSpend -= step.avgPrice;
+                if (durationMinimum > 0) {
+                    // remove the durationMinimum and query again
+                    completeOuting(req, res, warmup, outing, remainingDurationMinutes, stepIds, moneyToSpend, false);
+                } else if (remainingDurationMinutes <= 30) {
+                    // Most of the outing has been filled, so just return as-is
+                    completeOuting(req, res, warmup, outing, 0, stepIds, moneyToSpend, false);
+                } else {
+                    return res.status(404).send('Insufficient activities found in area to fill the outing; try lowering duration or increasing price?');
+                }
             } else {
-                // For now, just take the min price
-                step.spend = step.minPrice;
-                moneyToSpend -= step.minPrice;
-            }
+                // Determine time spent on specific step.
+                const arrayLength = steps.length;
+                const step = steps[Math.floor(Math.random() * arrayLength)];
+                const availableDuration = step.durationRange;
 
-            outing.push(step);
-            stepIds.push(step._id);
-            const newRemainingDuration = remainingDurationMinutes - step.duration;
-            completeOuting(req, res, warmup, outing, newRemainingDuration, stepIds, moneyToSpend);
+                // Start with the middle point of all available durations for the step
+                // Work downwards until finding a match
+                let midpointIndex = Math.round((availableDuration.length - 1) / 2);
+                // If the midpoint of available duration is less than the smallest acceptable duration,
+                // start at the end of array instead
+                if (availableDuration[midpointIndex] < acceptableDurations[acceptableDurations.length - 1]) {
+                    midpointIndex = availableDuration.length - 1;
+                }
+
+                let midpointDuration = availableDuration[midpointIndex];
+                while (acceptableDurations.indexOf(midpointDuration) === -1) {
+                    midpointIndex -= 1;
+                    midpointDuration = availableDuration[midpointIndex];
+                }
+                step.duration = midpointDuration;
+
+                if (step.avgPrice <= moneyToSpend) {
+                    step.spend = step.avgPrice;
+                    moneyToSpend -= step.avgPrice;
+                } else {
+                    // For now, just take the min price
+                    step.spend = step.minPrice;
+                    moneyToSpend -= step.minPrice;
+                }
+
+                outing.push(step);
+                stepIds.push(step._id);
+                const newRemainingDuration = remainingDurationMinutes - step.duration;
+                completeOuting(req, res, warmup, outing, newRemainingDuration, stepIds, moneyToSpend, true);
+            }
         });
     }
 };
@@ -621,7 +637,7 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds, moneyToS
             // return
             saveAndReturnOuting(req, res, finalResult, stepIds);
         } else {
-            completeOuting(req, res, warmup, outing, newRemainingDuration, stepIds, moneyToSpend);
+            completeOuting(req, res, warmup, outing, newRemainingDuration, stepIds, moneyToSpend, true);
         }
     });
 };
@@ -696,7 +712,7 @@ export const fillBeforeMain = (req, res, outing, timeBeforeMain, stepIds, moneyT
             // return
             saveAndReturnOuting(req, res, finalResult, stepIds);
         } else {
-            completeOuting(req, res, step, outing, newRemainingDuration, stepIds, moneyToSpend);
+            completeOuting(req, res, step, outing, newRemainingDuration, stepIds, moneyToSpend, true);
         }
     });
 };
@@ -782,7 +798,7 @@ export const exploreArea = (req, res, outing, minutesUntilEvent, stepDuration, s
     } else {
         newRemainingDurationRounded = newRemainingDurationMinutes + (30 - leftoverMinutes);
     }
-    completeOuting(req, res, exploreStep, outing, newRemainingDurationRounded, stepIds, moneyToSpend);
+    completeOuting(req, res, exploreStep, outing, newRemainingDurationRounded, stepIds, moneyToSpend, true);
 };
 
 /*
@@ -1118,7 +1134,6 @@ export const validateOutingRequest = (req, res) => {
         return res.status(400).send('Incorrect duration');
     } else {
         if (process.env.NO_REPEAT_STEPS === 'true') {
-            console.log('got in here');
             // Get list of past steps that user has participated in
             User.findOne({ _id: req.user._id }).exec((err, user) => {
                 req.query.completedSteps = user.completedSteps;

@@ -13,7 +13,7 @@ const http = require('http');
 
 // DB Setup
 let mongoURI;
-if (process.env.TEST === true) {
+if (process.env.TEST === 'true') {
     mongoURI = 'mongodb://localhost/test';
 } else {
     mongoURI = process.env.MONGODB_URI || 'mongodb://localhost/outingsbot';
