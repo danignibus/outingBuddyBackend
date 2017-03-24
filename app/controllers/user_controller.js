@@ -55,18 +55,13 @@ export const inviteFriends = (req, res, outingId) => {
                     // Make request to /invite for that user
                     http.get(`${process.env.HEROKU_APP}/invite?phoneNumber=${invited[invitee]}&inviter=${req.user.name}`);
                 } else {
-                    // TODO: add a GET to grab actual player ids from invited user once client is storing
-                    // these in frontend
-                    // make sure to add an IF since many users might not have these stored yet
-                    // console.log('existing friends were added; need to test on device');
-                    // const message = {
-                    //     app_id: process.env.ONESIGNAL_APP_ID,
-                    //     contents: { 'en': `You\'ve been invited to an outing by ${req.user.name}` },
-                    //     include_player_ids: ['ba3e0761-6596-4cea-ab5f-2bff5f2c2889'],
-                    // };
-                    // Notification.sendNotification(message);
-                    if (invited[invitee].length === 11) {
-                        invited[invitee] = invited[invitee].slice(1);
+                    if (user.playerId !== undefined) {
+                        const message = {
+                            app_id: process.env.ONESIGNAL_APP_ID,
+                            contents: { 'en': `You\'ve been invited to an outing by ${req.user.name}` },
+                            include_player_ids: [`${user.playerId}`],
+                        };
+                        Notification.sendNotification(message);
                     }
                     User.findOneAndUpdate(
                         { _id: user._id },
@@ -76,7 +71,6 @@ export const inviteFriends = (req, res, outingId) => {
                                 console.log('Error adding to invitedOutings for user');
                             }
                         });
-                    http.get(`${process.env.HEROKU_APP}/invite?phoneNumber=${invited[invitee]}&inviter=${req.user.name}`);
                 }
             });
         }

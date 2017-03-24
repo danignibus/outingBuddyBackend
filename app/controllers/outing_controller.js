@@ -197,7 +197,6 @@ with time-sensitive events.
 */
 export const optimizeRoute = (req, res, warmup, outing, stepIds) => {
     const finalResult = [];
-    console.log('got to optimizeRoute');
     finalResult.push(warmup);
     finalResult.push(outing[0]); // main step
     let firstStep = outing[0];
