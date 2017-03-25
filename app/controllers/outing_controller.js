@@ -726,7 +726,7 @@ export const findMainStep = (steps, outingDuration, stepDuration, callback) => {
     const arrayLength = steps.length;
     const stepIndex = Math.floor(Math.random() * arrayLength);
     const step = steps[stepIndex];
-    // If not a recurring/time sensitive event
+    // If not a recurring/set start time event
     if (!step.repeat_start) {
         callback(step);
     } else {
@@ -813,6 +813,12 @@ export const initiateOuting = (req, res) => {
     const outing = [];
     const stepIds = [];
 
+    const currentTime = new Date();
+    // getHours/minutes hack from stackoverflow: http://stackoverflow.com/questions/8935414/getminutes-0-9-how-to-with-two-numbers
+    const currentHours = (currentTime.getHours() < 10 ? '0' : '') + currentTime.getHours();
+    const currentMinutes = (currentTime.getMinutes() < 10 ? '0' : '') + currentTime.getMinutes();
+    const currentTimeInteger = parseInt(currentHours + '' + currentMinutes);
+
     let moneyToSpend;
     const price = req.query.price;
     if (req.query.price) {
@@ -838,7 +844,6 @@ export const initiateOuting = (req, res) => {
     } else {
         initialLocationCoordinates = [-72.288719, 43.705267];
     }
-
     const query = {
         loc: {
             $geoWithin: {
@@ -848,7 +853,11 @@ export const initiateOuting = (req, res) => {
         warmup: 0,
         approved: 1,
         minPrice: { $lte: moneyToSpend },
+        openTime: { $lte: currentTimeInteger },
+        closeTime: { $gte: currentTimeInteger },
     };
+
+    // TODO: need to figure out how to make closeTime gte currentTimeInteger + duration
     const stepQuery = Step.find(query);
 
     // Activity level must not exceed walking if user specifies nonactive, and must include some activity if user specifies active.
@@ -882,7 +891,7 @@ export const initiateOuting = (req, res) => {
                             req.query.active = 0;
                             mainStepDurationMinutes = halfDurationMinutes;
                         } else {
-                            return res.status(400).send('No activities in your area yet :( Upload one today!');
+                            return res.status(400).send('No activities with these parameters at the current time :( Upload one today!');
                         }
                     }
                 // Else, valid outing options were returned, so find an optimal one
@@ -929,34 +938,46 @@ export const initiateOuting = (req, res) => {
                                     saveAndReturnOuting(req, res, outing, stepIds);
                                 } else {
                                     // If step has a linked pre/post which fits within the outing, add this step
-                                    if (step.linkedSteps[0] !== undefined) {
+                                    if (step.linkedSteps[0] !== undefined && step.linkedSteps[0].score >= 3) {
                                         // TODO: randomize
                                         const linkedStepCandidate = step.linkedSteps[0];
+                                        // Linked step will begin directly after main step
+                                        const linkedStepStartTime = currentTimeInteger + step.duration;
                                         const linkedStepCandidateDuration = linkedStepCandidate.duration;
                                         const linkedStepCandidatePrice = linkedStepCandidate.minPrice;
+                                        const linkedStepCandidateOpenTime = linkedStepCandidate.openTime;
+                                        const linkedStepCandidateClosedTime = linkedStepCandidate.closeTime;
 
                                         // If linked step duration fits within the given timeframe and there is enough money for step, include linked step in the outing
                                         // TODO: check durationRange, not just avg Duration
                                         const checkDuration = newRemainingDuration - linkedStepCandidateDuration >= 0;
                                         const checkPrice = moneyToSpend - linkedStepCandidatePrice >= 0;
-                                        if (checkDuration && checkPrice) {
+                                        const checkStartTime = linkedStepStartTime >= linkedStepCandidateOpenTime;
+                                        const checkEndTime = linkedStepStartTime + linkedStepCandidateDuration <= linkedStepCandidateClosedTime;
+
+                                        if (checkDuration && checkPrice && checkStartTime && checkEndTime) {
                                             Step.findOne({ _id: linkedStepCandidate._id }).exec((err, linkedStep) => {
                                                 if (err) {
                                                     return res.send();
                                                 }
+
+                                                // Set the step's budget and duration to the calculated budget and duration
                                                 linkedStep.spend = linkedStepCandidatePrice;
                                                 linkedStep.duration = linkedStepCandidateDuration;
+
+                                                // Add the linked step to the outing directly after the main step (i.e., the one it is linked to)
                                                 outing.push(linkedStep);
                                                 stepIds.push(linkedStep._id);
                                                 outing[0].linkedPost = true;
                                                 outing[0].linkedPostId = linkedStep._id;
+
+                                                // Update total money, overall duration attributes accordingly
                                                 moneyToSpend -= linkedStepCandidatePrice;
                                                 newRemainingDuration -= linkedStepCandidateDuration;
 
                                                 if (newRemainingDuration === 0) {
                                                     saveAndReturnOuting(req, res, outing, stepIds);
                                                 } else {
-                                                    // TODO else call getWarmup
                                                     getWarmup(req, res, outing, newRemainingDuration, stepIds, moneyToSpend);
                                                 }
                                             });

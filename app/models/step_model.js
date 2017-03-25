@@ -3,9 +3,11 @@ import mongoose, { Schema } from 'mongoose';
 const linkedStepSchema = new Schema({
     _id: Schema.Types.ObjectId,
     avgPrice: Number,
+    closeTime: Number,
     duration: Number,
     minPrice: Number,
     order: String,
+    openTime: Number,
     totalScores: Number,
     score: Number,
 });
@@ -16,6 +18,7 @@ const StepSchema = new Schema({
     approved: Number,
     author: { type: Schema.Types.ObjectId, ref: 'User', required: false },
     avgPrice: Number,
+    closeTime: Number,
     description: { type: [String], required: true },
     duration: { type: Number, required: true },
     durationRange: [Number],
@@ -29,6 +32,7 @@ const StepSchema = new Schema({
     },
     maxPrice: Number,
     minPrice: Number,
+    openTime: Number,
     repeat_interval: String,
     repeat_start: Number,
     title: { type: String, required: true },
