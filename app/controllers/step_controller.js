@@ -256,9 +256,6 @@ export const updateLinkedSteps = (rating, outing) => {
             });
         }
     }
-
-
-    // Sort all linkedSteps within the document afterwards
 };
 
 /*

@@ -420,10 +420,9 @@ export const optimizeRouteXL = (req, res, warmup, outing, stepIds) => {
 This function fills in the remainder of the outing, based on the duration and location of
 the main step and the warmup.
 */
-export const completeOuting = (req, res, warmup, outing, remainingDurationMinutes, stepIds, moneyToSpend, setDurationMinimum) => {
+export const completeOuting = (req, res, warmup, outing, remainingDurationMinutes, stepIds, moneyToSpend, setDurationMinimum, nextStepStartTime) => {
     // get acceptable travel radius from client
     // must have enough populated outings for small radii to work!
-    console.log('got to complete outing');
     console.log('remaining duration minutes' + remainingDurationMinutes);
     let miles;
     if (req.query.radius) {
@@ -483,6 +482,14 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
 
         const stepQuery = Step.find(query);
 
+        // TODO: need to figure out how to specify duration for this?
+        if (nextStepStartTime) {
+            console.log(typeof nextStepStartTime);
+            console.log('got into if nextStepStartTime' + nextStepStartTime);
+            stepQuery.where('openTime').lte(nextStepStartTime);
+            stepQuery.where('closeTime').gte(nextStepStartTime);
+        }
+
         if (req.query.active) {
             if (req.query.active === 0) {
                 stepQuery.where('active', 0);
@@ -494,13 +501,13 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
         }
         stepQuery.exec((err, steps) => {
             // TODO (potentially): if steps returned is equal to 0, query around home's coordinates (rather than main activity's coordinates)
-            if (steps.length === 0 || steps === undefined) {
+            if (steps === undefined || steps.length === 0) {
                 if (durationMinimum > 0) {
                     // remove the durationMinimum and query again
-                    completeOuting(req, res, warmup, outing, remainingDurationMinutes, stepIds, moneyToSpend, false);
+                    completeOuting(req, res, warmup, outing, remainingDurationMinutes, stepIds, moneyToSpend, false, nextStepStartTime);
                 } else if (remainingDurationMinutes <= 30) {
                     // Most of the outing has been filled, so just return as-is
-                    completeOuting(req, res, warmup, outing, 0, stepIds, moneyToSpend, false);
+                    completeOuting(req, res, warmup, outing, 0, stepIds, moneyToSpend, false, nextStepStartTime);
                 } else {
                     return res.status(404).send('Insufficient activities found in area to fill the outing; try lowering duration or increasing price?');
                 }
@@ -549,7 +556,7 @@ This function pulls a warmup (flagged as a 1 in the warmup field) from the datab
 within a close range to the main activity of the outing. When the outing is fully generated, the
 user is sent on this warmup prior to the rest of the steps in the outing.
 */
-export const getWarmup = (req, res, outing, remainingDuration, stepIds, moneyToSpend, warmupLength) => {
+export const getWarmup = (req, res, outing, remainingDuration, stepIds, moneyToSpend, warmupLength, nextStepStartTime) => {
     // get close by activity for warmup
     // TODO: change this to .5 once we populate warmups!
     console.log('remaining duration at warmup is ' + remainingDuration);
@@ -636,7 +643,7 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds, moneyToS
             // return
             saveAndReturnOuting(req, res, finalResult, stepIds);
         } else {
-            completeOuting(req, res, warmup, outing, newRemainingDuration, stepIds, moneyToSpend, true);
+            completeOuting(req, res, warmup, outing, newRemainingDuration, stepIds, moneyToSpend, true, nextStepStartTime);
         }
     });
 };
@@ -900,10 +907,11 @@ export const initiateOuting = (req, res) => {
                     mainStepOptions = steps;
                     findMainStep(steps, req.query.duration, mainStepDurationMinutes, function(step, minutesUntilEvent) {
                         // Once we get the main step back, if step is null then no time sensitive step was appropriate for the given
-                        // time window, so we must go through steps until we find an acceptable one
+                        // time window, so we must continuously try to find a main step until success
                         if (step === null) {
                             mainStepOptions = undefined;
                             mainStepDurationMinutes = mainStepDurationMinutes - 60;
+                        // Otherwise, if step is not null, we calculate the budget for the step and add it to the outing
                         } else {
                             if (step.avgPrice <= moneyToSpend) {
                                 step.spend = step.avgPrice;
@@ -978,16 +986,21 @@ export const initiateOuting = (req, res) => {
                                                 if (newRemainingDuration === 0) {
                                                     saveAndReturnOuting(req, res, outing, stepIds);
                                                 } else {
-                                                    getWarmup(req, res, outing, newRemainingDuration, stepIds, moneyToSpend);
+                                                    const nextStepStartTime = linkedStepStartTime + linkedStepCandidateDuration;
+                                                    getWarmup(req, res, outing, newRemainingDuration, stepIds, moneyToSpend, null, nextStepStartTime);
                                                 }
                                             });
-                                        // Otherwise, the linked step doesn't work
+                                        // Otherwise, the linked step doesn't fit within this outing, so we should just grab another random step
+                                        // from the database
                                         } else {
-                                            getWarmup(req, res, outing, newRemainingDuration, stepIds, moneyToSpend);
+                                            // The next step's start time will be the end time of the main step
+                                            const nextStepStartTime = currentTimeInteger + step.duration;
+                                            getWarmup(req, res, outing, newRemainingDuration, stepIds, moneyToSpend, null, nextStepStartTime);
                                         }
                                     // Else, we don't need to worry about linked steps, so continue without them
                                     } else {
-                                        getWarmup(req, res, outing, newRemainingDuration, stepIds, moneyToSpend);
+                                        const nextStepStartTime = currentTimeInteger + step.duration;
+                                        getWarmup(req, res, outing, newRemainingDuration, stepIds, moneyToSpend, null, nextStepStartTime);
                                     }
                                 }
                             }
