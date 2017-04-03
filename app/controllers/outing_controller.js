@@ -424,6 +424,7 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
     // get acceptable travel radius from client
     // must have enough populated outings for small radii to work!
     console.log('remaining duration minutes' + remainingDurationMinutes);
+    console.log('next step start time' + nextStepStartTime);
     let miles;
     if (req.query.radius) {
         miles = req.query.radius;
@@ -465,9 +466,9 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
 
         const activeLevels = [0];
         if (req.query.active) {
-            if (req.query.active === 1) {
+            if (req.query.active === '1') {
                 activeLevels.push(1);
-            } else {
+            } else if (req.query.active !== '0') {
                 activeLevels.push(1);
                 activeLevels.push(2);
                 activeLevels.push(3);
@@ -526,8 +527,8 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
                 warmup: 1,
                 matches:
                 { $cond: [{ $and: [
-                        { $lte: ['$openTime', 1500] },
-                        { $gte: ['$closeTime', { $add: [1800, '$duration'] },
+                        { $lte: ['$openTime', nextStepStartTime] },
+                        { $gte: ['$closeTime', { $add: [nextStepStartTime, '$duration'] },
                         ] },
                 ] }, 1, 0] } } },
             { $match: { matches: 1 } }],
@@ -577,7 +578,8 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
                     outing.push(step);
                     stepIds.push(step._id);
                     const newRemainingDuration = remainingDurationMinutes - step.duration;
-                    completeOuting(req, res, warmup, outing, newRemainingDuration, stepIds, moneyToSpend, true);
+                    const followingStepStartTime = nextStepStartTime + step.duration;
+                    completeOuting(req, res, warmup, outing, newRemainingDuration, stepIds, moneyToSpend, true, followingStepStartTime);
                 }
             }
         );
@@ -622,13 +624,12 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds, moneyToS
     const warmupQuery = Step.find(query);
 
     if (req.query.active) {
-        if (req.query.active === 0) {
+        if (req.query.active === 0 || req.query.active === 1) {
             warmupQuery.where('active', 1);
+        } else {
+            // Else, get the generic 'active' warmup
+            warmupQuery.where('active', 2);
         }
-        // commenting this out for now because need to figure out what kind of prep each active step requires
-        // if (req.query.active > 1) {
-        //     warmupQuery.where('active', 2);
-        // }
     }
 
     // get all results, then index randomly into array
@@ -884,32 +885,43 @@ export const initiateOuting = (req, res) => {
     } else {
         initialLocationCoordinates = [-72.288719, 43.705267];
     }
+
+    const activeLevels = [];
+    // Activity level must not exceed walking if user specifies nonactive, and must include some activity if user specifies active.
+    if (req.query.active) {
+        if (req.query.active === '0') {
+            activeLevels.push(0);
+        } else if (req.query.active === '1') {
+            activeLevels.push(0);
+            activeLevels.push(1);
+        } else {
+            activeLevels.push(2);
+            activeLevels.push(3);
+        }
+    // Else, level of activity has not been specified, so all levels of activity are valid
+    } else {
+        activeLevels.push(0);
+        activeLevels.push(1);
+        activeLevels.push(2);
+        activeLevels.push(3);
+    }
+
     const query = {
+        active: { $in: activeLevels },
+        approved: 1,
+        closeTime: { $gte: currentTimeInteger },
         loc: {
             $geoWithin: {
                 $centerSphere: [initialLocationCoordinates, radiusInRadians],
             },
         },
-        warmup: 0,
-        approved: 1,
         minPrice: { $lte: moneyToSpend },
         openTime: { $lte: currentTimeInteger },
-        closeTime: { $gte: currentTimeInteger },
+        warmup: 0,
     };
 
     // TODO: need to figure out how to make closeTime gte currentTimeInteger + duration
     const stepQuery = Step.find(query);
-
-    // Activity level must not exceed walking if user specifies nonactive, and must include some activity if user specifies active.
-    if (req.query.active) {
-        if (req.query.active === 0) {
-            stepQuery.where('active', 0);
-        } else if (req.query.active === 1) {
-            stepQuery.active = { $in: [0, 1] };
-        } else {
-            stepQuery.where('active').gt(1);
-        }
-    }
 
     let mainStepOptions;
     let mainStepDurationMinutes = halfDurationMinutes;
@@ -921,15 +933,19 @@ export const initiateOuting = (req, res) => {
             stepQuery.where('duration').eq(mainStepDurationMinutes);
             stepQuery.exec((err, steps) => {
                 // If there's no step for the specified time, try 1 hour less for main step
+                console.log('checking for main again');
                 if (steps === undefined || steps.length === 0) {
                     mainStepDurationMinutes = mainStepDurationMinutes - 60;
                     // If we have checked for all active outings within time range, remove active specification and try to just
                     // find a normal outing; reset mainStepDurationMinutes
                     if (mainStepDurationMinutes === 0) {
+                        console.log('minutes = 0');
                         if (req.query.active > 0) {
                             stepQuery.active = { $in: [0, 1, 2] };
                             req.query.active = 0;
                             mainStepDurationMinutes = halfDurationMinutes;
+                            console.log('step query active' + stepQuery.active);
+                            console.log(mainStepDurationMinutes);
                         } else {
                             return res.status(400).send('No activities with these parameters at the current time :( Upload one today!');
                         }
@@ -946,6 +962,7 @@ export const initiateOuting = (req, res) => {
                             mainStepDurationMinutes = mainStepDurationMinutes - 60;
                         // Otherwise, if step is not null, we calculate the budget for the step and add it to the outing
                         } else {
+                            console.log('got main step' + step);
                             if (step.avgPrice <= moneyToSpend) {
                                 step.spend = step.avgPrice;
                                 moneyToSpend -= step.avgPrice;
