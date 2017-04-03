@@ -463,91 +463,124 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
             excludedIds = stepIds;
         }
 
+        const activeLevels = [0];
+        if (req.query.active) {
+            if (req.query.active === 1) {
+                activeLevels.push(1);
+            } else {
+                activeLevels.push(1);
+                activeLevels.push(2);
+                activeLevels.push(3);
+            }
+        // Else, level of activity has not been specified, so all levels of activity are valid
+        } else {
+            activeLevels.push(1);
+            activeLevels.push(2);
+            activeLevels.push(3);
+        }
+
         // query for steps within a given radius and that have not already been added to the outing
         const query = {
+            _id: {
+                $nin: excludedIds,
+            },
+            active: { $in: activeLevels },
+            approved: 1,
+            durationRange: { $in: acceptableDurations },
             loc: {
                 $geoWithin: {
                     $centerSphere: [jsonObject.loc.coordinates, radiusInRadians],
                 },
             },
-            _id: {
-                $nin: excludedIds,
-            },
-            durationRange: { $in: acceptableDurations },
-            warmup: 0,
-            approved: 1,
-            repeat_start: null,
             minPrice: { $lte: moneyToSpend },
+            repeat_start: null,
+            warmup: 0,
         };
 
-        const stepQuery = Step.find(query);
-
-        // TODO: need to figure out how to specify duration for this?
-        if (nextStepStartTime) {
-            console.log(typeof nextStepStartTime);
-            console.log('got into if nextStepStartTime' + nextStepStartTime);
-            stepQuery.where('openTime').lte(nextStepStartTime);
-            stepQuery.where('closeTime').gte(nextStepStartTime);
-        }
-
-        if (req.query.active) {
-            if (req.query.active === 0) {
-                stepQuery.where('active', 0);
-            } else if (req.query.active === 1) {
-                stepQuery.active = { $in: [0, 1] };
-            } else {
-                stepQuery.active = { $in: [0, 1, 2, 3] };
-            }
-        }
-        stepQuery.exec((err, steps) => {
-            // TODO (potentially): if steps returned is equal to 0, query around home's coordinates (rather than main activity's coordinates)
-            if (steps === undefined || steps.length === 0) {
-                if (durationMinimum > 0) {
-                    // remove the durationMinimum and query again
-                    completeOuting(req, res, warmup, outing, remainingDurationMinutes, stepIds, moneyToSpend, false, nextStepStartTime);
-                } else if (remainingDurationMinutes <= 30) {
-                    // Most of the outing has been filled, so just return as-is
-                    completeOuting(req, res, warmup, outing, 0, stepIds, moneyToSpend, false, nextStepStartTime);
+        // Guidance from http://stackoverflow.com/questions/43163264/set-mongoose-query-condition-based-on-document-s-attribute/43164265#43164265
+        // TODO: test that this actually works w/ appropriate time tests
+        Step.aggregate([
+            { $match: query },
+            { $project: {
+                active: 1,
+                approved: 1,
+                author: 1,
+                avgPrice: 1,
+                closeTime: 1,
+                description: 1,
+                duration: 1,
+                durationRange: 1,
+                image: 1,
+                linkedPost: 1,
+                linkedPostId: 1,
+                linkedSteps: 1,
+                loc: 1,
+                maxPrice: 1,
+                minPrice: 1,
+                openTime: 1,
+                repeat_interval: 1,
+                repeat_start: 1,
+                title: 1,
+                participants: 1,
+                spend: 1,
+                warmup: 1,
+                matches:
+                { $cond: [{ $and: [
+                        { $lte: ['$openTime', 1500] },
+                        { $gte: ['$closeTime', { $add: [1800, '$duration'] },
+                        ] },
+                ] }, 1, 0] } } },
+            { $match: { matches: 1 } }],
+            function (err, steps) {
+                if (steps === undefined || steps.length === 0) {
+                    if (durationMinimum > 0) {
+                        // remove the durationMinimum and query again
+                        completeOuting(req, res, warmup, outing, remainingDurationMinutes, stepIds, moneyToSpend, false, nextStepStartTime);
+                    } else if (remainingDurationMinutes <= 30) {
+                        // Most of the outing has been filled, so just return as-is
+                        completeOuting(req, res, warmup, outing, 0, stepIds, moneyToSpend, false, nextStepStartTime);
+                    } else {
+                        return res.status(404).send('Insufficient activities found in area to fill the outing; try lowering duration or increasing price?');
+                    }
                 } else {
-                    return res.status(404).send('Insufficient activities found in area to fill the outing; try lowering duration or increasing price?');
-                }
-            } else {
-                // Determine time spent on specific step.
-                const arrayLength = steps.length;
-                const step = steps[Math.floor(Math.random() * arrayLength)];
-                const availableDuration = step.durationRange;
+                    const arrayLength = steps.length;
+                    // Grab random step from list
+                    const step = steps[Math.floor(Math.random() * arrayLength)];
+                    const availableDuration = step.durationRange;
 
-                // Start with the middle point of all available durations for the step
-                // Work downwards until finding a match
-                let midpointIndex = Math.round((availableDuration.length - 1) / 2);
-                // If the midpoint of available duration is less than the smallest acceptable duration,
-                // start at the end of array instead
-                if (availableDuration[midpointIndex] < acceptableDurations[acceptableDurations.length - 1]) {
-                    midpointIndex = availableDuration.length - 1;
-                }
+                    // Determine time to be spent on specific step.
+                    // Start with the middle point of all available durations for the step
+                    // Work downwards until finding a match
+                    let midpointIndex = Math.round((availableDuration.length - 1) / 2);
+                    // If the midpoint of available duration is less than the smallest acceptable duration,
+                    // start at the end of array instead
+                    if (availableDuration[midpointIndex] < acceptableDurations[acceptableDurations.length - 1]) {
+                        midpointIndex = availableDuration.length - 1;
+                    }
 
-                let midpointDuration = availableDuration[midpointIndex];
-                while (acceptableDurations.indexOf(midpointDuration) === -1) {
-                    midpointIndex -= 1;
-                    midpointDuration = availableDuration[midpointIndex];
-                }
-                step.duration = midpointDuration;
+                    let midpointDuration = availableDuration[midpointIndex];
+                    while (acceptableDurations.indexOf(midpointDuration) === -1) {
+                        midpointIndex -= 1;
+                        midpointDuration = availableDuration[midpointIndex];
+                    }
+                    step.duration = midpointDuration;
 
-                if (step.avgPrice <= moneyToSpend) {
-                    step.spend = step.avgPrice;
-                    moneyToSpend -= step.avgPrice;
-                } else {
-                    // For now, just take the min price
-                    step.spend = step.minPrice;
-                    moneyToSpend -= step.minPrice;
-                }
+                    if (step.avgPrice <= moneyToSpend) {
+                        step.spend = step.avgPrice;
+                        moneyToSpend -= step.avgPrice;
+                    } else {
+                        // For now, just take the min price
+                        step.spend = step.minPrice;
+                        moneyToSpend -= step.minPrice;
+                    }
 
-                outing.push(step);
-                stepIds.push(step._id);
-                const newRemainingDuration = remainingDurationMinutes - step.duration;
-                completeOuting(req, res, warmup, outing, newRemainingDuration, stepIds, moneyToSpend, true);
+                    outing.push(step);
+                    stepIds.push(step._id);
+                    const newRemainingDuration = remainingDurationMinutes - step.duration;
+                    completeOuting(req, res, warmup, outing, newRemainingDuration, stepIds, moneyToSpend, true);
+                }
             }
-        });
+        );
     }
 };
 

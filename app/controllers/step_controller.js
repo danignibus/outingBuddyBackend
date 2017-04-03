@@ -15,6 +15,7 @@ export const createStep = (req, res, callback) => {
     step.active = req.query.active || 0;
     step.author = req.user._id;
     step.avgPrice = req.query.avgPrice;
+    step.closeTime = req.query.closeTime;
     step.description = req.query.description;
     step.duration = req.query.duration;
     step.image = req.query.image;
@@ -22,6 +23,7 @@ export const createStep = (req, res, callback) => {
     step.loc.type = 'Point';
     step.maxPrice = req.query.maxPrice;
     step.minPrice = req.query.minPrice;
+    step.openTime = req.query.openTime;
     step.participants = req.query.participants || 'UNLIMITED';
     step.title = req.query.title;
     step.warmup = req.query.warmup || 0;
@@ -82,9 +84,11 @@ export const addLinkedStep = (req, res) => {
             const linkedStepToAdd = {
                 _id: req.query.linkedStepId,
                 avgPrice: linkedStep.avgPrice,
+                closeTime: linkedStep.closeTime,
                 duration: linkedStep.duration,
                 minPrice: linkedStep.minPrice,
                 order: req.query.linkedStepOrder,
+                openTime: linkedStep.openTime,
                 score: 5,
                 totalScores: 1,
             };
@@ -115,8 +119,10 @@ export const addLinkedStep = (req, res) => {
             const linkedStep = {
                 _id: resultingStep._id,
                 avgPrice: resultingStep.avgPrice,
+                closeTime: resultingStep.closeTime,
                 duration: resultingStep.duration,
                 minPrice: resultingStep.minPrice,
+                openTime: resultingStep.openTime,
                 order: req.query.linkedStepOrder,
                 score: 5,
                 totalScores: 1,
