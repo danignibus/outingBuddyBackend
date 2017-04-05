@@ -1,5 +1,7 @@
 exports.MAX = 20;
 exports.CONFIG_RADIUS = 10;
+exports.CAR_RADIUS = 50;
+exports.NO_CAR_RADIUS = 4;
 exports.WEEKLY_REPEAT = 604800;
 exports.FREE = 0;
 exports.BELOW_15 = 15;
