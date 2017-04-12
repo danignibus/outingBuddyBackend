@@ -607,6 +607,16 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds, moneyToS
     const radiusInRadians = miles / 3959;
     const jsonObject = outing[0].toJSON();
 
+    const currentTime = new Date();
+    let currentDay = currentTime.getDay();
+
+    const currentHours = (currentTime.getHours() < 10 ? '0' : '') + currentTime.getHours();
+    const currentMinutes = (currentTime.getMinutes() < 10 ? '0' : '') + currentTime.getMinutes();
+    const currentTimeInteger = parseInt(currentHours + '' + currentMinutes);
+
+    // Days are stored with values 1-7 in DB for readability; getDay returns values from 0-6
+    currentDay = currentDay + 1;
+
     let excludedIds;
     if (req.query.completedSteps !== undefined) {
         excludedIds = req.query.completedSteps.concat(stepIds);
@@ -627,6 +637,7 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds, moneyToS
         approved: 1,
         repeat_start: null,
         minPrice: { $lte: moneyToSpend },
+        openTime: { $lte: currentTimeInteger },
     };
 
     const warmupQuery = Step.find(query);
@@ -942,8 +953,9 @@ export const initiateOuting = (req, res) => {
     async.whilst(
         function () { return mainStepOptions === undefined; },
         function (callback) {
-            stepQuery.where('duration').eq(mainStepDurationMinutes);
+            stepQuery.where('durationRange').in([mainStepDurationMinutes]);
             stepQuery.exec((err, steps) => {
+                console.log('received potential steps' + steps);
                 // If there's no step for the specified time, try 1 hour less for main step
                 console.log('checking for main again');
                 if (steps === undefined || steps.length === 0) {
@@ -971,7 +983,7 @@ export const initiateOuting = (req, res) => {
                         if (step === null) {
                             mainStepOptions = undefined;
                             mainStepDurationMinutes = mainStepDurationMinutes - 60;
-                        // Otherwise, if step is not null, we calculate the budget for the step and add it to the outing
+                        // Otherwise, if step is not null, we calculate the budget and set duration for the step and add it to the outing
                         } else {
                             if (step.avgPrice <= moneyToSpend) {
                                 step.spend = step.avgPrice;
@@ -981,6 +993,7 @@ export const initiateOuting = (req, res) => {
                                 step.spend = step.minPrice;
                                 moneyToSpend -= step.minPrice;
                             }
+                            step.duration = mainStepDurationMinutes;
                             outing.push(step);
                             stepIds.push(step._id);
                             // If main event is a time sensitive event
