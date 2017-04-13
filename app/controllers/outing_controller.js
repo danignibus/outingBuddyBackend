@@ -427,7 +427,7 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
     console.log('remaining duration minutes' + remainingDurationMinutes);
     console.log('next step start time' + nextStepStartTime);
     let miles;
-    if (req.query.car === true) {
+    if (req.query.car === 'true') {
         miles = CONST.CAR_RADIUS;
     } else {
         miles = CONST.NO_CAR_RADIUS;
@@ -486,6 +486,9 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
         console.log('active levels' + activeLevels);
         console.log('acceptable durations' + acceptableDurations);
 
+        const currentTime = new Date();
+        let currentDay = currentTime.getDay();
+
         // query for steps within a given radius and that have not already been added to the outing
         const query = {
             _id: {
@@ -502,6 +505,7 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
             minPrice: { $lte: moneyToSpend },
             repeat_start: null,
             warmup: 0,
+            openDays: currentDay,
         };
 
         // Guidance from http://stackoverflow.com/questions/43163264/set-mongoose-query-condition-based-on-document-s-attribute/43164265#43164265
@@ -638,13 +642,17 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds, moneyToS
         repeat_start: null,
         minPrice: { $lte: moneyToSpend },
         openTime: { $lte: currentTimeInteger },
+        openDays: currentDay,
     };
 
     const warmupQuery = Step.find(query);
     if (req.query.active) {
         if (req.query.active === '0' || req.query.active === '1') {
+            console.log('req query active was 0 or 1');
             warmupQuery.active = { $in: [0, 1] };
         } else {
+            console.log('req query active was more than 1');
+            console.log(req.query.active);
             // Else, get the generic 'active' warmup
             warmupQuery.where('active', 2);
         }
@@ -704,7 +712,7 @@ export const fillBeforeMain = (req, res, outing, timeBeforeMain, stepIds, moneyT
     // get close by activity for warmup
     // TODO: change this to .5 once we populate warmups!
     let miles;
-    if (req.query.car === true) {
+    if (req.query.car === 'true') {
         miles = CONST.CAR_RADIUS;
     } else {
         miles = CONST.NO_CAR_RADIUS;
@@ -867,7 +875,8 @@ is not already filled) to continue to populate the outing.
 */
 export const initiateOuting = (req, res) => {
     const duration = req.query.duration;
-    const halfDuration = Math.ceil(duration / 2);
+    // Note: removed Math.ceil to hopefully accommodate more steps
+    const halfDuration = duration / 2;
     const halfDurationMinutes = halfDuration * 60;
     const outing = [];
     const stepIds = [];
@@ -893,7 +902,7 @@ export const initiateOuting = (req, res) => {
     // If user has specified that they have a car, account for this. Otherwise, assume everything should be in walking distance.
     // TODO: change walking distance radius to 1, once we have added enough activities.
     let miles;
-    if (req.query.car === true) {
+    if (req.query.car === 'true') {
         miles = CONST.CAR_RADIUS;
     } else {
         miles = CONST.NO_CAR_RADIUS;
@@ -953,11 +962,18 @@ export const initiateOuting = (req, res) => {
     async.whilst(
         function () { return mainStepOptions === undefined; },
         function (callback) {
+            const acceptableDurations = [];
+            let mainStepDurationMinutesCounter = mainStepDurationMinutes;
+            while (mainStepDurationMinutesCounter <= req.query.duration * 60) {
+                acceptableDurations.push(mainStepDurationMinutesCounter);
+                mainStepDurationMinutesCounter += 15;
+            }
+            console.log('acceptableDurations for main step' + acceptableDurations);
+
             stepQuery.where('durationRange').in([mainStepDurationMinutes]);
             stepQuery.exec((err, steps) => {
                 console.log('received potential steps' + steps);
                 // If there's no step for the specified time, try 1 hour less for main step
-                console.log('checking for main again');
                 if (steps === undefined || steps.length === 0) {
                     mainStepDurationMinutes = mainStepDurationMinutes - 60;
                     // If we have checked for all active outings within time range, remove active specification and try to just
@@ -1087,7 +1103,7 @@ export const initiateOuting = (req, res) => {
             if (err || results === undefined || !results) {
                 if (req.query.active) {
                     return res.status(404).send('Activities satisfying parameters not found in area; try removing active param?');
-                } else if (req.query.car === false) {
+                } else if (req.query.car === 'false') {
                     return res.status(404).send('Activities satisfying parameters not found in area; try obtaining car?');
                 } else {
                     return res.status(404).send('Insufficient activities found in area; try lowering duration?');
