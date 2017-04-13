@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt-nodejs';
 
 // create a schema for outings/description
 const UserSchema = new Schema({
+    completedSteps: [],
     currentOuting: [],
     group: String,
     image: String,
@@ -13,8 +14,8 @@ const UserSchema = new Schema({
     outings: [],
     password: String,
     phoneNumber: { type: String, required: true },
-    completedSteps: [],
     playerId: String,
+    rewardStudy: Boolean,
 });
 
 UserSchema.set('toJSON', {
