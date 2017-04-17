@@ -457,7 +457,6 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
     }
     const radiusInRadians = miles / 3959;
     if (remainingDurationMinutes <= 15) {
-        console.log('called optimize route');
         optimizeRoute(req, res, warmup, outing, stepIds);
     } else if (remainingDurationMinutes > 15) {
         const jsonObject = outing[0].toJSON();
@@ -583,7 +582,6 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
                         // return res.status(404).send('Insufficient activities found in area to fill the outing; try lowering duration or increasing price?');
                     }
                 } else {
-                    console.log('available steps in completeouting' + steps);
                     const arrayLength = steps.length;
                     // Grab random step from list
                     const step = steps[Math.floor(Math.random() * arrayLength)];
@@ -645,18 +643,12 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds, moneyToS
     const radiusInRadians = miles / 3959;
     const jsonObject = outing[0].toJSON();
 
-    // const currentHours = (currentTime.getHours() < 10 ? '0' : '') + currentTime.getHours();
-    // const currentMinutes = (currentTime.getMinutes() < 10 ? '0' : '') + currentTime.getMinutes();
-    // const currentTimeInteger = parseInt(currentHours + '' + currentMinutes);
-    // console.log('current time integer' + currentTimeInteger);
-
     const midnightTime = new Date();
     const currentTime = new Date(midnightTime);
     // From stackoverflow: http://stackoverflow.com/questions/10944396/how-to-calculate-ms-since-midnight-in-javascript
     const millisecondsSinceMidnight = currentTime - midnightTime.setHours(0, 0, 0, 0);
     const secondsSinceMidnight = millisecondsSinceMidnight / 1000;
     const minutesSinceMidnight = secondsSinceMidnight / 60;
-    console.log('minutes since midnight' + minutesSinceMidnight);
 
     let currentDay = currentTime.getDay();
     // Days are stored with values 1-7 in DB for readability; getDay returns values from 0-6
@@ -950,10 +942,6 @@ export const initiateOuting = (req, res) => {
     const minutesSinceMidnight = secondsSinceMidnight / 60;
     console.log('minutes since midnight' + minutesSinceMidnight);
 
-    // getHours/minutes hack from stackoverflow: http://stackoverflow.com/questions/8935414/getminutes-0-9-how-to-with-two-numbers
-    const currentHours = (currentTime.getHours() < 10 ? '0' : '') + currentTime.getHours();
-    const currentMinutes = (currentTime.getMinutes() < 10 ? '0' : '') + currentTime.getMinutes();
-    const currentTimeInteger = parseInt(currentHours + '' + currentMinutes);
     let currentDay = currentTime.getDay();
 
     // Days are stored with values 1-7 in DB for readability; getDay returns values from 0-6
@@ -1128,7 +1116,7 @@ export const initiateOuting = (req, res) => {
                                         // TODO: randomize
                                         const linkedStepCandidate = step.linkedSteps[0];
                                         // Linked step will begin directly after main step
-                                        const linkedStepStartTime = currentTimeInteger + step.duration;
+                                        const linkedStepStartTime = minutesSinceMidnight + step.duration;
                                         const linkedStepCandidateDuration = linkedStepCandidate.duration;
                                         const linkedStepCandidatePrice = linkedStepCandidate.minPrice;
                                         const linkedStepCandidateOpenTime = linkedStepCandidate.openTime;
@@ -1179,7 +1167,7 @@ export const initiateOuting = (req, res) => {
                                                         saveAndReturnOuting(req, res, outing, stepIds);
                                                     }
                                                 } else {
-                                                    let nextStepStartTime = nextStepStartTime = linkedStepStartTime + linkedStepCandidateDuration;
+                                                    let nextStepStartTime = linkedStepStartTime + linkedStepCandidateDuration;
                                                     if (nextStepStartTime >= 1440) {
                                                         nextStepStartTime = nextStepStartTime - 1440;
                                                     }
