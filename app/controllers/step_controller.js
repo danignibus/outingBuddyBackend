@@ -236,30 +236,32 @@ by the user.
 export const updateLinkedSteps = (rating, outing) => {
     // Loop through each step in outing and check whether it has a linkedPost
     for (var i = 0; i < outing.detailedSteps.length; i++) {
-        // If a specific step in the outing had a linked post step associated with it, we want to update the edge's score between these two steps
-        if (outing.detailedSteps[i].linkedPost === true) {
-            console.log(outing.detailedSteps[i]);
-            const linkedPostId = outing.detailedSteps[i].linkedPostId;
-            // Get this linkedStep subdocument from within the main step's document
-            const linkedSteps = outing.detailedSteps[i].linkedSteps;
+        if (outing.detailedSteps[i] !== null) {
+            // If a specific step in the outing had a linked post step associated with it, we want to update the edge's score between these two steps
+            if (outing.detailedSteps[i].linkedPost === true) {
+                console.log(outing.detailedSteps[i]);
+                const linkedPostId = outing.detailedSteps[i].linkedPostId;
+                // Get this linkedStep subdocument from within the main step's document
+                const linkedSteps = outing.detailedSteps[i].linkedSteps;
 
-            // perform fresh query on that linkedPostId (since it might have changed due to other users over the course of the outing)
-            Step.findOne({ _id: outing.detailedSteps[i]._id }, function(err, step) {
-                // Calculate new average score
-                const linkedStep = step.linkedSteps.id(linkedPostId);
-                const currentTotalScores = linkedStep.totalScores;
-                const currentScore = linkedStep.score;
-                const newAverageNumerator = parseInt(currentScore) * parseInt(currentTotalScores) + parseInt(rating);
-                const newAverageDenominator = parseInt(currentTotalScores) + 1;
-                const newAverageScore = newAverageNumerator * 1.0 / newAverageDenominator;
+                // perform fresh query on that linkedPostId (since it might have changed due to other users over the course of the outing)
+                Step.findOne({ _id: outing.detailedSteps[i]._id }, function(err, step) {
+                    // Calculate new average score
+                    const linkedStep = step.linkedSteps.id(linkedPostId);
+                    const currentTotalScores = linkedStep.totalScores;
+                    const currentScore = linkedStep.score;
+                    const newAverageNumerator = parseInt(currentScore) * parseInt(currentTotalScores) + parseInt(rating);
+                    const newAverageDenominator = parseInt(currentTotalScores) + 1;
+                    const newAverageScore = newAverageNumerator * 1.0 / newAverageDenominator;
 
-                // Update linked step to have this score in DB
-                linkedStep.score = newAverageScore;
-                linkedStep.totalScores = currentTotalScores + 1;
-                step.save(function (err, result) {
-                    console.log('Updated linked step rating');
+                    // Update linked step to have this score in DB
+                    linkedStep.score = newAverageScore;
+                    linkedStep.totalScores = currentTotalScores + 1;
+                    step.save(function (err, result) {
+                        console.log('Updated linked step rating');
+                    });
                 });
-            });
+            }
         }
     }
 };

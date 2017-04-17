@@ -639,7 +639,7 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds, moneyToS
     // get close by activity for warmup
     // TODO: change this to .5 once we populate warmups!
     console.log('remaining duration at warmup is ' + remainingDuration);
-    const miles = 5;
+    const miles = 4;
     const radiusInRadians = miles / 3959;
     const jsonObject = outing[0].toJSON();
 
@@ -828,11 +828,25 @@ This function is passed an array of candidate steps for the outing's main step.
 It searches this array for a step that is appropriate for the current time and
 input duration.
 */
-export const findMainStep = (steps, outingDuration, stepDuration, callback) => {
+export const findMainStep = (steps, outingDuration, stepDuration, car, callback) => {
     // Go through steps until we find an acceptable one
     const arrayLength = steps.length;
-    const stepIndex = Math.floor(Math.random() * arrayLength);
-    const step = steps[stepIndex];
+    let stepIndex;
+    let step;
+
+    // If user has a car, randomly pull step that is further away
+    if (car === 'true') {
+        const halfStepsArray = Math.ceil(arrayLength / 2);
+        // Start number should be at second half of array
+        const lastArrayIndex = arrayLength - 1;
+        stepIndex = Math.floor(Math.random() * (lastArrayIndex - halfStepsArray + 1) + halfStepsArray);
+        step = steps[stepIndex];
+        console.log('arrayLength ' + arrayLength);
+        console.log('step index for car' + stepIndex);
+    } else {
+        stepIndex = Math.floor(Math.random() * arrayLength);
+        step = steps[stepIndex];
+    }
     // If not a recurring/set start time event
     if (!step.repeat_start) {
         callback(step);
@@ -875,7 +889,7 @@ export const findMainStep = (steps, outingDuration, stepDuration, callback) => {
             if (steps.length === 0) {
                 callback(null);
             } else {
-                findMainStep(steps, outingDuration, stepDuration, callback);
+                findMainStep(steps, outingDuration, stepDuration, car, callback);
             }
         }
     }
@@ -1027,8 +1041,10 @@ export const initiateOuting = (req, res) => {
             console.log(acceptableDurations);
             stepQuery.where('durationRange', { $in: acceptableDurations });
             stepQuery.exec((err, steps) => {
-                console.log('err' + err);
-                console.log('received potential steps' + steps);
+                console.log('received potential main steps:');
+                for (let step in steps) {
+                    console.log(steps[step].title);
+                }
                 // If there's no step for the specified time, try 1 hour less for main step
                 if (steps === undefined || steps.length === 0) {
                     mainStepDurationMinutes = mainStepDurationMinutes - 60;
@@ -1049,7 +1065,7 @@ export const initiateOuting = (req, res) => {
                 } else {
                     // Randomly pull outing from array
                     mainStepOptions = steps;
-                    findMainStep(steps, duration, mainStepDurationMinutes, function(step, minutesUntilEvent) {
+                    findMainStep(steps, duration, mainStepDurationMinutes, req.query.car, function(step, minutesUntilEvent) {
                         // Once we get the main step back, if step is null then no time sensitive step was appropriate for the given
                         // time window, so we must continuously try to find a main step until success
                         if (step === null) {
@@ -1171,7 +1187,11 @@ export const initiateOuting = (req, res) => {
                                                     if (nextStepStartTime >= 1440) {
                                                         nextStepStartTime = nextStepStartTime - 1440;
                                                     }
-                                                    getWarmup(req, res, outing, newRemainingDuration, stepIds, moneyToSpend, null, nextStepStartTime);
+                                                    if (req.query.duration > 3 && req.query.car !== true) {
+                                                        getWarmup(req, res, outing, newRemainingDuration, stepIds, moneyToSpend, null, nextStepStartTime);
+                                                    } else {
+                                                        completeOuting(req, res, null, outing, newRemainingDuration, stepIds, moneyToSpend, true, nextStepStartTime);
+                                                    }
                                                 }
                                             });
                                         // Otherwise, the linked step doesn't fit within this outing, so we should just grab another random step
@@ -1182,7 +1202,11 @@ export const initiateOuting = (req, res) => {
                                             if (nextStepStartTime >= 1440) {
                                                 nextStepStartTime = nextStepStartTime - 1440;
                                             }
-                                            getWarmup(req, res, outing, newRemainingDuration, stepIds, moneyToSpend, null, nextStepStartTime);
+                                            if (req.query.duration > 3 && req.query.car !== true) {
+                                                getWarmup(req, res, outing, newRemainingDuration, stepIds, moneyToSpend, null, nextStepStartTime);
+                                            } else {
+                                                completeOuting(req, res, null, outing, newRemainingDuration, stepIds, moneyToSpend, true, nextStepStartTime);
+                                            }
                                         }
                                     // Else, we don't need to worry about linked steps, so continue without them
                                     } else {
@@ -1190,7 +1214,11 @@ export const initiateOuting = (req, res) => {
                                         if (nextStepStartTime >= 1440) {
                                             nextStepStartTime = nextStepStartTime - 1440;
                                         }
-                                        getWarmup(req, res, outing, newRemainingDuration, stepIds, moneyToSpend, null, nextStepStartTime);
+                                        if (req.query.duration > 3 && req.query.car !== true) {
+                                            getWarmup(req, res, outing, newRemainingDuration, stepIds, moneyToSpend, null, nextStepStartTime);
+                                        } else {
+                                            completeOuting(req, res, null, outing, newRemainingDuration, stepIds, moneyToSpend, true, nextStepStartTime);
+                                        }
                                     }
                                 }
                             }
@@ -1307,10 +1335,21 @@ export const skipStep = (req, res) => {
         const currentOutingSteps = currentOuting.detailedSteps;
 
         // TODO: Change this to .5 once we have sufficient number of outings.
-        const miles = 5;
+        const miles = 4;
         const radiusInRadians = miles / 3959;
 
+        const midnightTime = new Date();
+        const currentTime = new Date(midnightTime);
+        // From stackoverflow: http://stackoverflow.com/questions/10944396/how-to-calculate-ms-since-midnight-in-javascript
+        const millisecondsSinceMidnight = currentTime - midnightTime.setHours(0, 0, 0, 0);
+        const secondsSinceMidnight = millisecondsSinceMidnight / 1000;
+        const minutesSinceMidnight = secondsSinceMidnight / 60;
+
+        let currentDay = currentTime.getDay();
+        currentDay = currentDay + 1;
+
         const query = {
+            approved: 1,
             loc: {
                 $geoWithin: {
                     $centerSphere: [offendingStep.loc.coordinates, radiusInRadians],
@@ -1319,8 +1358,10 @@ export const skipStep = (req, res) => {
             _id: {
                 $nin: currentOuting.stepIds,
             },
-            duration: offendingStep.duration,
-            approved: 1,
+            durationRange: offendingStep.duration,
+            openDays: currentDay,
+            openTime2: { $lte: minutesSinceMidnight },
+            closeTime2: { $gte: minutesSinceMidnight },
         };
 
         const skipStepQuery = Step.find(query);
@@ -1333,7 +1374,7 @@ export const skipStep = (req, res) => {
 
 
         skipStepQuery.exec((err, steps) => {
-            if (steps.length === 0) {
+            if (steps === undefined || steps.length === 0) {
                 return res.status(404).send('Alternate steps not found');
             }
             const arrayLength = steps.length;

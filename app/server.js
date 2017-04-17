@@ -115,7 +115,7 @@ controller.setupWebserver(port, function (err, webserver) {
                             if (err) {
                                 console.log(err);
                             }
-                            convo.say(`You have been added to an outing on Guide by ${req.query.inviter}! Visit ${process.env.APP_WEBSITE} to download the app!`);
+                            convo.say(`You have been added to an outing on Loop by ${req.query.inviter}! Visit ${process.env.KEV_EMAIL} to download the app!`);
                             convo.next();
                         });
                         res.send('Invited new user');
@@ -133,7 +133,7 @@ controller.setupWebserver(port, function (err, webserver) {
                                 console.log(err);
                             }
                             // TODO: Add link once we get TestFlight working
-                            convo.say(`You have been added to an outing on Guide by ${req.query.inviter}!`);
+                            convo.say(`You have been added to an outing on Loop by ${req.query.inviter}!`);
                             convo.next();
                         });
                         res.send('User already in DB, but sent invite via SMS for now');
