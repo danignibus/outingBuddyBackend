@@ -142,6 +142,7 @@ export const saveAndReturnOuting = (req, res, detailedSteps, stepIds) => {
 
     outing.detailedSteps = detailedSteps;
     outing.stepIds = stepIds;
+    outing.userPhoneNumber = req.user.phoneNumber;
 
     // Email myself about the outing
     const transporter = nodemailer.createTransport('SMTP', {
@@ -243,7 +244,19 @@ export const optimizeRoute = (req, res, warmup, outing, stepIds) => {
     outing.splice(0, 1);
 
     if (outing[0] === undefined) {
-        saveAndReturnOuting(req, res, finalResult, stepIds);
+        if (outing.reward === true) {
+            // Push the Starbucks reward here
+            Step.findOne({ _id: process.env.REWARD_STEP_ID }).exec((err, rewardStep) => {
+                rewardStep.duration = 30;
+
+                // Add the reward step to the outing directly after the main step (i.e., the one it is linked to)
+                finalResult.push(rewardStep);
+                stepIds.push(rewardStep._id);
+                saveAndReturnOuting(req, res, finalResult, stepIds);
+            });
+        } else {
+            saveAndReturnOuting(req, res, finalResult, stepIds);
+        }
     }
 
     // If we go directly from the main step to the final step, no need to calculate route
@@ -251,9 +264,17 @@ export const optimizeRoute = (req, res, warmup, outing, stepIds) => {
         finalResult.push(outing[0]);
         if (outing.reward === true) {
             // Push the Starbucks reward here
-            console.log('will push here');
+            Step.findOne({ _id: process.env.REWARD_STEP_ID }).exec((err, rewardStep) => {
+                rewardStep.duration = 30;
+
+                // Add the reward step to the outing directly after the main step (i.e., the one it is linked to)
+                finalResult.push(rewardStep);
+                stepIds.push(rewardStep._id);
+                saveAndReturnOuting(req, res, finalResult, stepIds);
+            });
+        } else {
+            saveAndReturnOuting(req, res, finalResult, stepIds);
         }
-        saveAndReturnOuting(req, res, finalResult, stepIds);
     } else {
         const unsortedStepIds = stepIds.slice();
         let sortedStepIds = stepIds.slice();
@@ -376,8 +397,18 @@ export const optimizeRoute = (req, res, warmup, outing, stepIds) => {
                     finalResult.push(outing[0]);
                     routeToSave.push(outing[0]._id);
                 }
+                // Add reward at end of outing
                 if (outing.reward === true) {
-                    console.log('outing reward!');
+                    Step.findOne({ _id: process.env.REWARD_STEP_ID }).exec((err, rewardStep) => {
+                        rewardStep.duration = 30;
+
+                        // Add the reward step to the outing directly after the main step (i.e., the one it is linked to)
+                        finalResult.push(rewardStep);
+                        stepIds.push(rewardStep._id);
+                        saveAndReturnOuting(req, res, finalResult, stepIds);
+                    });
+                } else {
+                    saveAndReturnOuting(req, res, finalResult, stepIds);
                 }
 
                 // Save calculated route; save and return outing
@@ -473,6 +504,7 @@ the main step and the warmup.
 export const completeOuting = (req, res, warmup, outing, remainingDurationMinutes, stepIds, moneyToSpend, setDurationMinimum, nextStepStartTime) => {
     // get acceptable travel radius from client
     // must have enough populated outings for small radii to work!
+    console.log('outing reward status completeOuting' + outing.reward);
     console.log('remaining duration minutes' + remainingDurationMinutes);
     console.log('next step start time' + nextStepStartTime);
     let miles;
@@ -665,6 +697,7 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds, moneyToS
     // get close by activity for warmup
     // TODO: change this to .5 once we populate warmups!
     console.log('remaining duration at warmup is ' + remainingDuration);
+    console.log('outing at warmup' + outing.reward);
     const miles = 4;
     const radiusInRadians = miles / 3959;
     const jsonObject = outing[0].toJSON();
@@ -767,7 +800,22 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds, moneyToS
             finalResult.push(warmup);
             finalResult.push(outing[0]);
             // return
-            saveAndReturnOuting(req, res, finalResult, stepIds);
+            if (outing.reward === true) {
+                // Add the reward step to the outing
+                Step.findOne({ _id: process.env.REWARD_STEP_ID }).exec((err, rewardStep) => {
+                    if (err) {
+                        return res.send();
+                    }
+                    rewardStep.duration = 30;
+
+                    // Add the reward step to the outing directly after the main step (i.e., the one it is linked to)
+                    finalResult.push(rewardStep);
+                    stepIds.push(rewardStep._id);
+                    saveAndReturnOuting(req, res, finalResult, stepIds);
+                });
+            } else {
+                saveAndReturnOuting(req, res, finalResult, stepIds);
+            }
         } else {
             completeOuting(req, res, warmup, outing, newRemainingDuration, stepIds, moneyToSpend, true, nextStepStartTime);
         }
@@ -862,13 +910,13 @@ export const findMainStep = (steps, outingDuration, stepDuration, car, callback)
 
     // If user has a car, randomly pull step that is further away
     if (car === 'true') {
-        const halfStepsArray = Math.ceil(arrayLength / 2);
+        const halfStepsArray = Math.floor(arrayLength / 2);
         // Start number should be at second half of array
         // From stackoverflow: http://stackoverflow.com/questions/4959975/generate-random-number-between-two-numbers-in-javascript
         const lastArrayIndex = arrayLength - 1;
         stepIndex = Math.floor(Math.random() * (lastArrayIndex - halfStepsArray + 1) + halfStepsArray);
         step = steps[stepIndex];
-        console.log('arrayLength ' + arrayLength);
+        console.log('arrayLength' + arrayLength);
         console.log('step index for car' + stepIndex);
     } else {
         stepIndex = Math.floor(Math.random() * arrayLength);
@@ -956,12 +1004,11 @@ is not already filled) to continue to populate the outing.
 */
 export const initiateOuting = (req, res) => {
     const outing = [];
-    // if (req.user.rewardStudy === true) {
-    //     outing.reward = true;
-    // } else {
-    //     outing.reward = false;
-    // }
-    outing.reward = false;
+    if (req.user.rewardStudy === true) {
+        outing.reward = true;
+    } else {
+        outing.reward = false;
+    }
 
     let duration = req.query.duration;
     // Leave 30 mins at end for Starbucks
@@ -1137,7 +1184,7 @@ export const initiateOuting = (req, res) => {
                             } else {
                                 let newRemainingDuration = duration * 60 - step.duration;
                                 if (newRemainingDuration === 0) {
-                                    if (outing.reward) {
+                                    if (outing.reward === true) {
                                         // Add the reward step to the outing
                                         Step.findOne({ _id: process.env.REWARD_STEP_ID }).exec((err, rewardStep) => {
                                             if (err) {
@@ -1193,12 +1240,9 @@ export const initiateOuting = (req, res) => {
                                                 newRemainingDuration -= linkedStepCandidateDuration;
 
                                                 if (newRemainingDuration === 0) {
-                                                    if (outing.reward) {
+                                                    if (outing.reward === true) {
                                                         // Add the reward step to the outing
                                                         Step.findOne({ _id: process.env.REWARD_STEP_ID }).exec((err, rewardStep) => {
-                                                            if (err) {
-                                                                return res.send();
-                                                            }
                                                             rewardStep.duration = 30;
 
                                                             // Add the reward step to the outing directly after the main step (i.e., the one it is linked to)
