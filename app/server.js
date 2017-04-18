@@ -93,6 +93,11 @@ controller.setupWebserver(port, function (err, webserver) {
             res.send(process.env.LOADER_IO_TOKEN_2);
         });
 
+        webserver.get('/poke', (req, res) => {
+            console.log('Poked server');
+            res.send('Poked');
+        });
+
         webserver.get('/invite', (req, res) => {
             if (!req.query.phoneNumber) {
                 return res.status(400).send('Invitee not specified');

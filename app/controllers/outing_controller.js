@@ -139,8 +139,34 @@ export const saveAndReturnOuting = (req, res, detailedSteps, stepIds) => {
     if (detailedSteps.message) {
         message = detailedSteps.message;
     }
+
     outing.detailedSteps = detailedSteps;
     outing.stepIds = stepIds;
+
+    // Email myself about the outing
+    const transporter = nodemailer.createTransport('SMTP', {
+        service: 'Gmail',
+        auth: {
+            user: process.env.APP_EMAIL,
+            pass: process.env.APP_PASSWORD,
+        },
+    });
+
+    // email info
+    const mailOptions = {
+        from: `"Outing Buddy App 👥" <${process.env.APP_EMAIL}>`, // sender address
+        to: `${process.env.APP_EMAIL}`,
+        subject: 'Outing generated',
+        text: `${req.user.name} generated a new outing! Here are the detailed steps: ${detailedSteps}. Here is the message (if applicable): ${message} Woohoo!`,
+    };
+
+    // send mail with defined transport object
+    transporter.sendMail(mailOptions, function(error, info) {
+        console.log('info' + info);
+        if (error) {
+            return console.log(error);
+        }
+    });
     outing.save()
         .then(result => {
             const userId = req.user._id;
@@ -149,7 +175,7 @@ export const saveAndReturnOuting = (req, res, detailedSteps, stepIds) => {
             res.json({
                 outingId: result._id,
                 detailedSteps,
-                message
+                message,
             });
         })
     .catch(error => {
@@ -315,29 +341,29 @@ export const optimizeRoute = (req, res, warmup, outing, stepIds) => {
                             }
                         }
 
-                        // Notify myself!
-                        const transporter = nodemailer.createTransport('SMTP', {
-                            service: 'Gmail',
-                            auth: {
-                                user: process.env.APP_EMAIL,
-                                pass: process.env.APP_PASSWORD,
-                            },
-                        });
+                        // // Notify myself!
+                        // const transporter = nodemailer.createTransport('SMTP', {
+                        //     service: 'Gmail',
+                        //     auth: {
+                        //         user: process.env.APP_EMAIL,
+                        //         pass: process.env.APP_PASSWORD,
+                        //     },
+                        // });
 
-                        // email info
-                        const mailOptions = {
-                            from: `"Outing Buddy App 👥" <${process.env.APP_EMAIL}>`, // sender address
-                            to: `${process.env.APP_EMAIL}`,
-                            subject: 'Previous route used!',
-                            text: `Used a previous route! ${route[0].route} Woohoo!`,
-                        };
+                        // // email info
+                        // const mailOptions = {
+                        //     from: `"Outing Buddy App 👥" <${process.env.APP_EMAIL}>`, // sender address
+                        //     to: `${process.env.APP_EMAIL}`,
+                        //     subject: 'Previous route used!',
+                        //     text: `Used a previous route! ${route[0].route} Woohoo!`,
+                        // };
 
-                        // send mail with defined transport object
-                        transporter.sendMail(mailOptions, function(error, info) {
-                            if (error) {
-                                return console.log(error);
-                            }
-                        });
+                        // // send mail with defined transport object
+                        // transporter.sendMail(mailOptions, function(error, info) {
+                        //     if (error) {
+                        //         return console.log(error);
+                        //     }
+                        // });
                         callback(null, outing);
                     }
                 });
@@ -838,6 +864,7 @@ export const findMainStep = (steps, outingDuration, stepDuration, car, callback)
     if (car === 'true') {
         const halfStepsArray = Math.ceil(arrayLength / 2);
         // Start number should be at second half of array
+        // From stackoverflow: http://stackoverflow.com/questions/4959975/generate-random-number-between-two-numbers-in-javascript
         const lastArrayIndex = arrayLength - 1;
         stepIndex = Math.floor(Math.random() * (lastArrayIndex - halfStepsArray + 1) + halfStepsArray);
         step = steps[stepIndex];
