@@ -504,7 +504,6 @@ the main step and the warmup.
 export const completeOuting = (req, res, warmup, outing, remainingDurationMinutes, stepIds, moneyToSpend, setDurationMinimum, nextStepStartTime) => {
     // get acceptable travel radius from client
     // must have enough populated outings for small radii to work!
-    console.log('outing reward status completeOuting' + outing.reward);
     console.log('remaining duration minutes' + remainingDurationMinutes);
     console.log('next step start time' + nextStepStartTime);
     let miles;
@@ -611,6 +610,7 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
                 loc: 1,
                 maxPrice: 1,
                 minPrice: 1,
+                minDuration: 1,
                 openTime2: 1,
                 repeat_interval: 1,
                 repeat_start: 1,
@@ -634,7 +634,6 @@ export const completeOuting = (req, res, warmup, outing, remainingDurationMinute
                         // Most of the outing has been filled, so just return as-is
                         completeOuting(req, res, warmup, outing, 0, stepIds, moneyToSpend, false, nextStepStartTime);
                     } else {
-                        console.log('COULD NOT FULLY FILL OUTING');
                         outing.message = 'NOT_FULL';
                         optimizeRoute(req, res, warmup, outing, stepIds);
                         // return res.status(404).send('Insufficient activities found in area to fill the outing; try lowering duration or increasing price?');
@@ -697,7 +696,6 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds, moneyToS
     // get close by activity for warmup
     // TODO: change this to .5 once we populate warmups!
     console.log('remaining duration at warmup is ' + remainingDuration);
-    console.log('outing at warmup' + outing.reward);
     const miles = 4;
     const radiusInRadians = miles / 3959;
     const jsonObject = outing[0].toJSON();
@@ -753,10 +751,8 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds, moneyToS
     warmupQuery.exec((err, steps) => {
         let warmup;
         if (steps === undefined || steps.length === 0) {
-            // TODO: In future should just check for alternate steps instead!
-            // console.log('sent 404 for warmup query');
-
             // return res.status(404).send('There are no warmups in this area :(');
+            console.log('got warmups are undefined');
             warmup = null;
         } else {
             const arrayLength = steps.length;
@@ -793,6 +789,7 @@ export const getWarmup = (req, res, outing, remainingDuration, stepIds, moneyToS
         } else {
             newRemainingDuration = remainingDuration;
         }
+        console.log(warmup);
 
         if (newRemainingDuration <= 15) {
             // add the warmup to the activity
@@ -902,7 +899,7 @@ This function is passed an array of candidate steps for the outing's main step.
 It searches this array for a step that is appropriate for the current time and
 input duration.
 */
-export const findMainStep = (steps, outingDuration, stepDuration, car, callback) => {
+export const findMainStep = (steps, outingDuration, stepDuration, mainStepStartTime, car, callback) => {
     // Go through steps until we find an acceptable one
     const arrayLength = steps.length;
     let stepIndex;
@@ -924,7 +921,17 @@ export const findMainStep = (steps, outingDuration, stepDuration, car, callback)
     }
     // If not a recurring/set start time event
     if (!step.repeat_start) {
-        callback(step);
+        if (step.closeTime2 >= mainStepStartTime + step.minDuration) {
+            console.log('step close time was >= main step start time plus minDuration');
+            callback(step);
+        } else {
+            steps.splice(stepIndex, 1);
+            if (steps.length === 0) {
+                callback(null);
+            } else {
+                findMainStep(steps, outingDuration, stepDuration, mainStepStartTime, car, callback);
+            }
+        }
     } else {
         // Step has a recurring time specification; calculate whether time is valid or not
         const date = new Date();
@@ -964,7 +971,7 @@ export const findMainStep = (steps, outingDuration, stepDuration, car, callback)
             if (steps.length === 0) {
                 callback(null);
             } else {
-                findMainStep(steps, outingDuration, stepDuration, car, callback);
+                findMainStep(steps, outingDuration, stepDuration, mainStepStartTime, car, callback);
             }
         }
     }
@@ -1108,11 +1115,15 @@ export const initiateOuting = (req, res) => {
         function (callback) {
             const acceptableDurations = [];
             let mainStepDurationMinutesCounter = mainStepDurationMinutes;
-            while (mainStepDurationMinutesCounter <= duration * 60) {
-                acceptableDurations.push(mainStepDurationMinutesCounter);
-                mainStepDurationMinutesCounter += 15;
+            if (mainStepDurationMinutesCounter < 0) {
+                acceptableDurations.push(0);
+            } else {
+                while (mainStepDurationMinutesCounter <= duration * 60) {
+                    acceptableDurations.push(mainStepDurationMinutesCounter);
+                    mainStepDurationMinutesCounter += 15;
+                }
             }
-            console.log(acceptableDurations);
+            console.log('acceptable durations' + acceptableDurations);
             stepQuery.where('durationRange', { $in: acceptableDurations });
             stepQuery.exec((err, steps) => {
                 console.log('received potential main steps:');
@@ -1122,6 +1133,7 @@ export const initiateOuting = (req, res) => {
                 // If there's no step for the specified time, try 1 hour less for main step
                 if (steps === undefined || steps.length === 0) {
                     mainStepDurationMinutes = mainStepDurationMinutes - 60;
+
                     // If we have checked for all active outings within time range, remove active specification and try to just
                     // find a normal outing; reset mainStepDurationMinutes
                     if (mainStepDurationMinutes <= 0) {
@@ -1139,10 +1151,11 @@ export const initiateOuting = (req, res) => {
                 } else {
                     // Randomly pull outing from array
                     mainStepOptions = steps;
-                    findMainStep(steps, duration, mainStepDurationMinutes, req.query.car, function(step, minutesUntilEvent) {
+                    findMainStep(steps, duration, mainStepDurationMinutes, minutesSinceMidnight, req.query.car, function(step, minutesUntilEvent) {
                         // Once we get the main step back, if step is null then no time sensitive step was appropriate for the given
                         // time window, so we must continuously try to find a main step until success
                         if (step === null) {
+                            console.log('got in here');
                             mainStepOptions = undefined;
                             mainStepDurationMinutes = mainStepDurationMinutes - 60;
                         // Otherwise, if step is not null, we calculate the budget and set duration for the step and add it to the outing
@@ -1258,7 +1271,7 @@ export const initiateOuting = (req, res) => {
                                                     if (nextStepStartTime >= 1440) {
                                                         nextStepStartTime = nextStepStartTime - 1440;
                                                     }
-                                                    if (req.query.duration > 3 && req.query.car !== true) {
+                                                    if (req.query.active > 1 || (req.query.duration > 3 && req.query.car !== true)) {
                                                         getWarmup(req, res, outing, newRemainingDuration, stepIds, moneyToSpend, null, nextStepStartTime);
                                                     } else {
                                                         completeOuting(req, res, null, outing, newRemainingDuration, stepIds, moneyToSpend, true, nextStepStartTime);
@@ -1273,7 +1286,7 @@ export const initiateOuting = (req, res) => {
                                             if (nextStepStartTime >= 1440) {
                                                 nextStepStartTime = nextStepStartTime - 1440;
                                             }
-                                            if (req.query.duration > 3 && req.query.car !== true) {
+                                            if (req.query.active > 1 || (req.query.duration > 3 && req.query.car !== true)) {
                                                 getWarmup(req, res, outing, newRemainingDuration, stepIds, moneyToSpend, null, nextStepStartTime);
                                             } else {
                                                 completeOuting(req, res, null, outing, newRemainingDuration, stepIds, moneyToSpend, true, nextStepStartTime);
@@ -1285,7 +1298,7 @@ export const initiateOuting = (req, res) => {
                                         if (nextStepStartTime >= 1440) {
                                             nextStepStartTime = nextStepStartTime - 1440;
                                         }
-                                        if (req.query.duration > 3 && req.query.car !== true) {
+                                        if (req.query.active > 1 || (req.query.duration > 3 && req.query.car !== true)) {
                                             getWarmup(req, res, outing, newRemainingDuration, stepIds, moneyToSpend, null, nextStepStartTime);
                                         } else {
                                             completeOuting(req, res, null, outing, newRemainingDuration, stepIds, moneyToSpend, true, nextStepStartTime);
