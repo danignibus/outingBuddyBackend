@@ -921,7 +921,22 @@ export const findMainStep = (steps, outingDuration, stepDuration, mainStepStartT
     }
     // If not a recurring/set start time event
     if (!step.repeat_start) {
-        if (step.closeTime2 >= mainStepStartTime + step.minDuration) {
+        console.log('Main step start time plus step min duration');
+        console.log(mainStepStartTime + step.minDuration);
+        if (mainStepStartTime + step.minDuration >= 1439) {
+            const nextStepStartTime = mainStepStartTime + step.minDuration;
+            // If step is still open for the duration past midnight needed
+            if (step.closeTime2 >= nextStepStartTime - 1439) {
+                callback(step);
+            } else {
+                steps.splice(stepIndex, 1);
+                if (steps.length === 0) {
+                    callback(null);
+                } else {
+                    findMainStep(steps, outingDuration, stepDuration, mainStepStartTime, car, callback);
+                }
+            }
+        } else if (step.closeTime2 >= mainStepStartTime + step.minDuration) {
             console.log('step close time was >= main step start time plus minDuration');
             callback(step);
         } else {
@@ -1011,8 +1026,20 @@ is not already filled) to continue to populate the outing.
 */
 export const initiateOuting = (req, res) => {
     const outing = [];
-    if (req.user.rewardStudy === true) {
+
+    const rewardStudyPhoneNumbers = process.env.REWARD_STUDY_PHONE_NUMBERS;
+    // If user has not already received 2 rewards and they are included in the list of users to receive awards,
+    // give them a reward
+    if (req.user.rewardStudy < 2 && rewardStudyPhoneNumbers.indexOf(req.user.phoneNumber) > -1) {
         outing.reward = true;
+
+        // Update user
+        const newRewardStudyValue = req.user.rewardStudy + 1;
+        User.update({ _id: req.user._id }, {
+            rewardStudy: newRewardStudyValue,
+        }, function(err, response) {
+           console.log(response);
+        });
     } else {
         outing.reward = false;
     }
@@ -1144,7 +1171,7 @@ export const initiateOuting = (req, res) => {
                             req.query.active = '4';
                             mainStepDurationMinutes = halfDurationMinutes;
                         } else {
-                            return res.status(400).send('No activities with these parameters at the current time :( Upload one today!');
+                            return res.status(404).send('No activities with these parameters at the current time :( Upload one today!');
                         }
                     }
                 // Else, valid outing options were returned, so find an optimal one
@@ -1361,7 +1388,7 @@ export const updateOuting = (req, res, currentOuting, detailedSteps, replacedSte
         (err, user) => {
             if (err) {
                 // TODO: update error
-                return res.status(400).send('Error updating outing with new steps');
+                return res.status(404).send('Error updating outing with new steps');
             }
         });
 };
@@ -1460,12 +1487,13 @@ export const skipStep = (req, res) => {
         skipStepQuery.exec((err, steps) => {
             if (steps === undefined || steps.length === 0) {
                 return res.status(404).send('Alternate steps not found');
-            }
-            const arrayLength = steps.length;
-            const newStep = steps[Math.floor(Math.random() * arrayLength)];
+            } else {
+                const arrayLength = steps.length;
+                const newStep = steps[Math.floor(Math.random() * arrayLength)];
 
-            updateOuting(req, res, currentOuting, currentOutingSteps, offendingStep, newStep);
-            res.send(newStep);
+                updateOuting(req, res, currentOuting, currentOutingSteps, offendingStep, newStep);
+                res.send(newStep);
+            }
         });
     });
 };

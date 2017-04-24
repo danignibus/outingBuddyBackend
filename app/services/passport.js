@@ -6,6 +6,8 @@ import User from '../models/user_model';
 import dotenv from 'dotenv';
 dotenv.config({ silent: true });
 
+// This entire file is from the CS 52 tutorial on authentication using passport.js, by Tim Tregubov.
+
 // options for local strategy, we'll use email AS the username
 // not have separate ones
 const localOptions = { usernameField: 'phoneNumber' };

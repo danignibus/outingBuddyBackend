@@ -15,7 +15,7 @@ const UserSchema = new Schema({
     password: String,
     phoneNumber: { type: String, required: true },
     playerId: String,
-    rewardStudy: Boolean,
+    rewardStudy: { type: Number, default: 0 },
 });
 
 UserSchema.set('toJSON', {

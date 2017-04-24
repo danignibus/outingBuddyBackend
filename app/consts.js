@@ -8,3 +8,4 @@ exports.BELOW_15 = 15;
 exports.BELOW_30 = 30;
 exports.BELOW_50 = 50;
 exports.ABOVE_50 = Infinity;
+exports.REMAINING_REWARDS = 20;

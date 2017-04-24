@@ -186,6 +186,7 @@ export const searchStep = (req, res) => {
     const radiusInRadians = miles / 3959;
 
     const query = {
+        approved: 1,
         loc: {
             $geoWithin: {
                 $centerSphere: [submittedCoordinates, radiusInRadians],
@@ -215,6 +216,7 @@ export const getCandidateLinkedPosts = (req, res) => {
     const radiusInRadians = miles / 3959;
 
     const query = {
+        approved: 1,
         loc: {
             $geoWithin: {
                 $centerSphere: [submittedCoordinates, radiusInRadians],
